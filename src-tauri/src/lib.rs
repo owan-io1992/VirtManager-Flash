@@ -71,22 +71,24 @@ fn list_domains() -> Result<Vec<DomainItem>, String> {
             }
         }
 
-        if let Ok(stats) = dom.memory_stats(0) {
-            let mut unused = 0;
-            let mut available = 0;
-            for stat in stats {
-                if stat.tag == 4 || stat.tag == 8 {
-                    unused = stat.val;
-                } else if stat.tag == 5 {
-                    available = stat.val;
-                } else if stat.tag == 6 {
-                    if available == 0 {
+        if state == 1 || state == 3 {
+            if let Ok(stats) = dom.memory_stats(0) {
+                let mut unused = 0;
+                let mut available = 0;
+                for stat in stats {
+                    if stat.tag == 4 || stat.tag == 8 {
+                        unused = stat.val;
+                    } else if stat.tag == 5 {
                         available = stat.val;
+                    } else if stat.tag == 6 {
+                        if available == 0 {
+                            available = stat.val;
+                        }
                     }
                 }
-            }
-            if available > 0 && available >= unused {
-                memory = available - unused;
+                if available > 0 && available >= unused {
+                    memory = available - unused;
+                }
             }
         }
 

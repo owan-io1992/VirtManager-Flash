@@ -1083,10 +1083,16 @@ h1 {
 
 /* Real-Time Metrics Styling */
 .metrics-section {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
   margin-bottom: 2rem;
+}
+
+@media (max-width: 900px) {
+  .metrics-section {
+    grid-template-columns: 1fr;
+  }
 }
 
 .metric-card {
