@@ -12,6 +12,7 @@ struct DomainItem {
     memory: u64,
     vcpu_count: u32,
     os_type: String,
+    cpu_time: u64,
 }
 
 fn connect_libvirt() -> Result<Connect, String> {
@@ -47,12 +48,39 @@ fn list_domains() -> Result<Vec<DomainItem>, String> {
         let mut max_mem = 0;
         let mut memory = 0;
         let mut vcpu_count = 0;
+        let mut cpu_time = 0;
         
         if let Ok(info) = dom.get_info() {
             state = info.state;
             max_mem = info.max_mem;
             memory = info.memory;
             vcpu_count = info.nr_virt_cpu as u32;
+            cpu_time = info.cpu_time;
+        }
+
+        if max_mem == 0 {
+            if let Ok(max_mem_fallback) = dom.get_max_memory() {
+                max_mem = max_mem_fallback;
+            }
+        }
+
+        if let Ok(stats) = dom.memory_stats(0) {
+            let mut unused = 0;
+            let mut available = 0;
+            for stat in stats {
+                if stat.tag == 4 || stat.tag == 8 {
+                    unused = stat.val;
+                } else if stat.tag == 5 {
+                    available = stat.val;
+                } else if stat.tag == 6 {
+                    if available == 0 {
+                        available = stat.val;
+                    }
+                }
+            }
+            if available > 0 && available >= unused {
+                memory = available - unused;
+            }
         }
 
         list.push(DomainItem {
@@ -63,6 +91,7 @@ fn list_domains() -> Result<Vec<DomainItem>, String> {
             memory,
             vcpu_count,
             os_type,
+            cpu_time,
         });
     }
     
