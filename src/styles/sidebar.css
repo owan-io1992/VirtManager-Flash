@@ -1,0 +1,566 @@
+/* Vessel Premium CSS Design System - Left Sidebar & Environment Tree */
+
+.sidebar {
+  width: 350px;
+  background: rgba(13, 17, 28, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  margin-bottom: 2rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.logo-icon {
+  font-size: 2.2rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, #FFF 30%, #24C6DC 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  font-size: 0.8rem;
+  color: #64748B;
+  margin: 0.2rem 0 0 0;
+}
+
+.sidebar-status {
+  margin-bottom: 1.5rem;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(36, 198, 220, 0.08);
+  border: 1px solid rgba(36, 198, 220, 0.2);
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #24C6DC;
+  align-self: flex-start;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #24C6DC;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #24C6DC;
+}
+
+/* Stats in Sidebar */
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1rem 0;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #F8FAFC;
+}
+
+.stat-lbl {
+  font-size: 0.7rem;
+  color: #64748B;
+  margin-top: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Sidebar List controls */
+.list-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.list-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btn-refresh {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  box-shadow: none;
+}
+
+.btn-refresh:hover {
+  color: #24C6DC;
+}
+
+.btn-refresh.loading svg {
+  animation: spin 1s linear infinite;
+}
+
+/* VM Scrollable List (DENSE - NO GAP) */
+.vm-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-right: -0.5rem;
+  padding-right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  background: rgba(22, 27, 42, 0.15);
+}
+
+.vm-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.vm-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.vm-list-item {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vm-list-item:last-child {
+  border-bottom: none;
+}
+
+.vm-list-item:first-child {
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+}
+
+.vm-list-item:last-child {
+  border-bottom-left-radius: 11px;
+  border-bottom-right-radius: 11px;
+}
+
+.vm-list-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.vm-list-item.selected {
+  background: rgba(36, 198, 220, 0.08);
+  box-shadow: inset 3px 0 0 #24C6DC;
+}
+
+.vm-item-checkbox-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.75rem;
+}
+
+.vm-item-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(8, 11, 17, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.vm-item-checkbox:hover {
+  border-color: #24C6DC;
+}
+
+.vm-item-checkbox:checked {
+  background: #24C6DC;
+  border-color: #24C6DC;
+}
+
+.vm-item-checkbox:checked::after {
+  content: "✓";
+  font-size: 10px;
+  color: #080B11;
+  font-weight: 850;
+}
+
+.vm-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.vm-item-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #E2E8F0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vm-list-item.selected .vm-item-name {
+  color: #FFF;
+  font-weight: 600;
+}
+
+.vm-item-type {
+  font-size: 0.7rem;
+  color: #64748B;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.vm-item-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.5rem;
+}
+
+.status-dot-mini {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot-mini.running {
+  background-color: #10B981;
+  box-shadow: 0 0 6px #10B981;
+}
+
+.status-dot-mini.stopped {
+  background-color: #64748B;
+}
+
+.status-dot-mini.paused {
+  background-color: #F59E0B;
+  box-shadow: 0 0 6px #F59E0B;
+}
+
+/* Folders & Drag-and-Drop Organization */
+.folder-item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.01);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.folder-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.folder-caret {
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+  color: #64748B;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.folder-caret.collapsed {
+  transform: rotate(-90deg);
+}
+
+.folder-icon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
+}
+
+.folder-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #E2E8F0;
+  flex-grow: 1;
+}
+
+.btn-delete-folder {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  cursor: pointer;
+  padding: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.folder-header:hover .btn-delete-folder {
+  opacity: 1;
+}
+
+.btn-delete-folder:hover {
+  color: #EF4444;
+}
+
+.folder-children {
+  padding-left: 1.25rem;
+  background: rgba(0, 0, 0, 0.1);
+  border-left: 2px solid rgba(36, 198, 220, 0.1);
+  margin-left: 1.5rem;
+  transition: all 0.2s ease-out;
+}
+
+/* Drag and Drop visual indicator */
+.vm-list.dragging-active * {
+  pointer-events: none;
+}
+
+.vm-list.dragging-active .vm-list-item,
+.vm-list.dragging-active .folder-header,
+.vm-list.dragging-active .folder-children,
+.vm-list.dragging-active .folder-item,
+.vm-list.dragging-active {
+  pointer-events: auto;
+}
+
+/* Insert line indicators */
+.vm-list-item.drag-insert-before {
+  box-shadow: inset 0 2.5px 0 #24C6DC !important;
+}
+
+.vm-list-item.drag-insert-after {
+  box-shadow: inset 0 -2.5px 0 #24C6DC !important;
+}
+
+.folder-header.drag-insert-before {
+  box-shadow: inset 0 2.5px 0 #24C6DC !important;
+}
+
+.folder-header.drag-insert-after {
+  box-shadow: inset 0 -2.5px 0 #24C6DC !important;
+}
+
+.drag-over-folder-header {
+  background: rgba(36, 198, 220, 0.12) !important;
+}
+
+/* Folder Creation Inline Input UI */
+.folder-create-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  animation: slideDown 0.2s ease-out;
+}
+
+.input-folder-name {
+  flex-grow: 1;
+  background: rgba(8, 11, 17, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #FFF;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  outline: none;
+}
+
+.input-folder-name:focus {
+  border-color: #24C6DC;
+}
+
+.btn-folder-create-confirm, .btn-folder-create-cancel {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.4rem;
+  border-radius: 4px;
+}
+
+.btn-folder-create-confirm {
+  color: #10B981;
+}
+
+.btn-folder-create-cancel {
+  color: #EF4444;
+}
+
+.btn-folder-create-confirm:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.btn-folder-create-cancel:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.btn-add-folder-trigger {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  box-shadow: none;
+  font-size: 1.1rem;
+}
+
+.btn-add-folder-trigger:hover {
+  color: #24C6DC;
+}
+
+/* Light Theme Overrides */
+.light-theme .sidebar {
+  background: rgba(255, 255, 255, 0.75);
+  border-right-color: rgba(15, 23, 42, 0.08);
+}
+
+.light-theme .status-badge {
+  background: rgba(8, 145, 178, 0.05);
+  border-color: rgba(8, 145, 178, 0.15);
+  color: #0891B2;
+}
+
+.light-theme .status-dot {
+  background-color: #0891B2;
+  box-shadow: 0 0 6px #0891B2;
+}
+
+.light-theme .stats-summary {
+  border-top-color: rgba(15, 23, 42, 0.06);
+  border-bottom-color: rgba(15, 23, 42, 0.06);
+}
+
+.light-theme .stat-val {
+  color: #0F172A;
+}
+
+.light-theme .stat-lbl {
+  color: #64748B;
+}
+
+.light-theme .vm-list {
+  border-color: rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.light-theme .vm-list-item {
+  border-bottom-color: rgba(15, 23, 42, 0.06);
+}
+
+.light-theme .vm-list-item:hover {
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.light-theme .vm-list-item.selected {
+  background: rgba(8, 145, 178, 0.06);
+  box-shadow: inset 3px 0 0 #0891B2;
+}
+
+.light-theme .vm-item-name {
+  color: #334155;
+}
+
+.light-theme .vm-list-item.selected .vm-item-name {
+  color: #0F172A;
+}
+
+.light-theme .vm-item-checkbox {
+  border-color: rgba(15, 23, 42, 0.15);
+  background: #FFF;
+}
+
+.light-theme .vm-item-checkbox:checked {
+  background: #0891B2;
+  border-color: #0891B2;
+}
+
+.light-theme .vm-item-checkbox:checked::after {
+  color: #FFF;
+}
+
+.light-theme .vm-item-status .status-dot-mini.stopped {
+  background-color: #94A3B8;
+}
+
+.light-theme .folder-item {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.light-theme .folder-header:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.light-theme .folder-name {
+  color: #0F172A;
+}
+
+.light-theme .folder-children {
+  background: rgba(0, 0, 0, 0.02);
+  border-left: 2px solid rgba(36, 198, 220, 0.2);
+}
+
+.light-theme .folder-create-container {
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.light-theme .input-folder-name {
+  background: #FFF;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #0F172A;
+}

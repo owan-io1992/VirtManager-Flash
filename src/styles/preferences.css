@@ -1,0 +1,233 @@
+/* Vessel Premium CSS Design System - Preferences Settings Modal */
+
+.preferences-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(8, 11, 17, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.preferences-modal {
+  width: 1100px;
+  height: 650px;
+  background: rgba(18, 24, 38, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  animation: scaleUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.form-value-text {
+  font-size: 0.85rem;
+  color: #F1F5F9;
+  font-weight: 600;
+}
+
+.light-theme .form-value-text {
+  color: #0F172A;
+}
+
+.preferences-info-text {
+  font-size: 0.85rem;
+  color: #94A3B8;
+  line-height: 1.8;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.light-theme .preferences-info-text {
+  color: #475569;
+}
+
+.system-resource-val {
+  font-weight: 600;
+  color: #24C6DC;
+}
+
+.light-theme .system-resource-val {
+  color: #0891B2;
+}
+
+.light-theme .preferences-modal {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+.preferences-modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.light-theme .preferences-modal-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.preferences-modal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #FFF;
+}
+
+.light-theme .preferences-modal-title {
+  color: #0F172A;
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: color 0.15s ease;
+}
+
+.btn-close-modal:hover {
+  color: #EF4444;
+}
+
+.preferences-modal-body {
+  flex-grow: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.preferences-modal-sidebar {
+  width: 175px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(8, 11, 17, 0.3);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.light-theme .preferences-modal-sidebar {
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.preferences-menu-item {
+  background: transparent;
+  border: none;
+  color: #94A3B8 !important;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preferences-menu-item:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #F1F5F9 !important;
+}
+
+.preferences-menu-item.active {
+  background: rgba(36, 198, 220, 0.12) !important;
+  color: #24C6DC !important;
+}
+
+.light-theme .preferences-menu-item {
+  color: #475569 !important;
+}
+
+.light-theme .preferences-menu-item:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #0F172A !important;
+}
+
+.light-theme .preferences-menu-item.active {
+  background: rgba(8, 145, 178, 0.08) !important;
+  color: #0891B2 !important;
+}
+
+.preferences-modal-content {
+  flex-grow: 1;
+  padding: 1.5rem 2rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Two-column sub-sections for storage/networks */
+.settings-two-column {
+  display: flex;
+  gap: 1.5rem;
+  flex-grow: 1;
+  overflow: hidden;
+  height: 100%;
+}
+
+.settings-sub-list {
+  width: 200px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  background: rgba(8, 11, 17, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.light-theme .settings-sub-list {
+  border-color: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.settings-sub-item {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.85rem;
+  font-weight: 550;
+  color: #E2E8F0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.light-theme .settings-sub-item {
+  border-color: rgba(0, 0, 0, 0.05);
+  color: #0F172A;
+}
+
+.settings-sub-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.settings-sub-item.active {
+  background: rgba(36, 198, 220, 0.08);
+  border-left: 3px solid #24C6DC;
+}
+
+.settings-sub-details {
+  flex-grow: 1;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: rgba(8, 11, 17, 0.1);
+  overflow-y: auto;
+}
+
+.light-theme .settings-sub-details {
+  border-color: rgba(0, 0, 0, 0.05);
+  background: transparent;
+}

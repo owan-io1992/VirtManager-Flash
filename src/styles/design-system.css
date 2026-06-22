@@ -1,0 +1,160 @@
+/* Vessel Premium CSS Design System - Core Tokens & Resets */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  font-family: 'Outfit', sans-serif;
+  color: #E2E8F0;
+  background-color: #080B11;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(20, 30, 48, 0.5) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(36, 198, 220, 0.1) 0px, transparent 50%);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent body scroll, use inner panels */
+}
+
+/* Master Layout */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Light Theme Color System Overrides */
+.light-theme {
+  color: #334155;
+  background-color: #F8FAFC;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(203, 213, 225, 0.3) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(36, 198, 220, 0.05) 0px, transparent 50%);
+}
+
+.light-theme h1 {
+  background: linear-gradient(135deg, #0F172A 30%, #0891B2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Right-click Context Menu Styles */
+.context-menu {
+  position: absolute;
+  background: rgba(18, 24, 38, 0.85);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(36, 198, 220, 0.05);
+  border-radius: 8px;
+  padding: 0.35rem;
+  z-index: 10000;
+  width: 195px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  animation: slideDown 0.1s ease-out;
+}
+
+.context-menu-item {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #E2E8F0;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.12s ease;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: rgba(36, 198, 220, 0.12);
+  color: #FFF;
+}
+
+.context-menu-item:disabled {
+  color: #475569;
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.context-menu-item.danger {
+  color: #F87171;
+}
+
+.context-menu-item.danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+}
+
+.context-menu-item .menu-icon {
+  font-size: 0.85rem;
+  width: 14px;
+  text-align: center;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.05);
+  margin: 0.25rem 0;
+}
+
+.light-theme .context-menu {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 0 15px rgba(8, 145, 178, 0.03);
+}
+
+.light-theme .context-menu-item {
+  color: #334155;
+}
+
+.light-theme .context-menu-item:hover:not(:disabled) {
+  background: rgba(8, 145, 178, 0.06);
+  color: #0F172A;
+}
+
+.light-theme .context-menu-separator {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.2); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
