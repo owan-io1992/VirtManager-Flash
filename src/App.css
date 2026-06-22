@@ -1347,5 +1347,210 @@ h1 {
   color: #0F172A;
 }
 
+/* --- Folders & Drag-and-Drop Organization --- */
+
+.folder-item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.light-theme .folder-item {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.01);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.folder-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.light-theme .folder-header:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.folder-caret {
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+  color: #64748B;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.folder-caret.collapsed {
+  transform: rotate(-90deg);
+}
+
+.folder-icon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
+}
+
+.folder-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #E2E8F0;
+  flex-grow: 1;
+}
+
+.light-theme .folder-name {
+  color: #0F172A;
+}
+
+.btn-delete-folder {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  cursor: pointer;
+  padding: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.folder-header:hover .btn-delete-folder {
+  opacity: 1;
+}
+
+.btn-delete-folder:hover {
+  color: #EF4444;
+}
+
+.folder-children {
+  padding-left: 1.25rem;
+  background: rgba(0, 0, 0, 0.1);
+  border-left: 2px solid rgba(36, 198, 220, 0.1);
+  margin-left: 1.5rem;
+  transition: all 0.2s ease-out;
+}
+
+.light-theme .folder-children {
+  background: rgba(0, 0, 0, 0.02);
+  border-left: 2px solid rgba(36, 198, 220, 0.2);
+}
+
+/* Drag and Drop visual indicator */
+.vm-list.dragging-active * {
+  pointer-events: none;
+}
+
+.vm-list.dragging-active .vm-list-item,
+.vm-list.dragging-active .folder-header,
+.vm-list.dragging-active .folder-children,
+.vm-list.dragging-active .folder-item,
+.vm-list.dragging-active {
+  pointer-events: auto;
+}
+
+/* Insert line indicators */
+.vm-list-item.drag-insert-before {
+  box-shadow: inset 0 2.5px 0 #24C6DC !important;
+}
+
+.vm-list-item.drag-insert-after {
+  box-shadow: inset 0 -2.5px 0 #24C6DC !important;
+}
+
+.folder-header.drag-insert-before {
+  box-shadow: inset 0 2.5px 0 #24C6DC !important;
+}
+
+.folder-header.drag-insert-after {
+  box-shadow: inset 0 -2.5px 0 #24C6DC !important;
+}
+
+.drag-over-folder-header {
+  background: rgba(36, 198, 220, 0.12) !important;
+}
+
+
+/* Folder Creation Inline Input UI */
+.folder-create-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  animation: slideDown 0.2s ease-out;
+}
+
+.light-theme .folder-create-container {
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.input-folder-name {
+  flex-grow: 1;
+  background: rgba(8, 11, 17, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #FFF;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  outline: none;
+}
+
+.light-theme .input-folder-name {
+  background: #FFF;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #0F172A;
+}
+
+.input-folder-name:focus {
+  border-color: #24C6DC;
+}
+
+.btn-folder-create-confirm, .btn-folder-create-cancel {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.4rem;
+  border-radius: 4px;
+}
+
+.btn-folder-create-confirm {
+  color: #10B981;
+}
+
+.btn-folder-create-cancel {
+  color: #EF4444;
+}
+
+.btn-folder-create-confirm:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.btn-folder-create-cancel:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.btn-add-folder-trigger {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  box-shadow: none;
+  font-size: 1.1rem;
+}
+
+.btn-add-folder-trigger:hover {
+  color: #24C6DC;
+}
+
+
 
 

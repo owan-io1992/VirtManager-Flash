@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
+
 
 interface DomainItem {
   name: string;
@@ -12,6 +14,14 @@ interface DomainItem {
   os_type: string;
   cpu_time: number;
 }
+
+interface Folder {
+  id: string;
+  name: string;
+  collapsed: boolean;
+  vmNames: string[];
+}
+
 
 // Libvirt states mapping
 const getStateInfo = (stateNum: number) => {
@@ -233,8 +243,42 @@ function App() {
   const [selectedVmNames, setSelectedVmNames] = useState<string[]>([]);
   const [lastSelectedName, setLastSelectedName] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; vmName: string } | null>(null);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    return (localStorage.getItem("vessel-theme") as "dark" | "light") || "dark";
+  });
+
+  const [folders, setFolders] = useState<Folder[]>(() => {
+    const saved = localStorage.getItem("vessel-folders");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [topLevelOrder, setTopLevelOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem("vessel-top-level-order");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  const [draggedItem, setDraggedItem] = useState<{ type: "vm" | "folder"; id: string } | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<string | null>(null);
+  const [dragInsertion, setDragInsertion] = useState<{ targetId: string; position: "before" | "after" } | null>(null);
+
+
+  // Sync state changes with localStorage
+  useEffect(() => {
+    localStorage.setItem("vessel-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("vessel-folders", JSON.stringify(folders));
+  }, [folders]);
+
+  useEffect(() => {
+    localStorage.setItem("vessel-top-level-order", JSON.stringify(topLevelOrder));
+  }, [topLevelOrder]);
+
   // Tabs & Console States
   const [activeTab, setActiveTab] = useState<"status" | "console">("status");
   const [spicePort, setSpicePort] = useState<number | null>(null);
@@ -337,6 +381,65 @@ function App() {
     }
   };
 
+  // Synchronize topLevelOrder and folders with active domains
+  useEffect(() => {
+    if (domains.length === 0) return;
+    const activeVmNames = new Set(domains.map((d) => d.name));
+
+    // 1. Clean folders: remove VMs that no longer exist
+    let folderChanged = false;
+    const nextFolders = folders.map((f) => {
+      const filteredVms = f.vmNames.filter((name) => activeVmNames.has(name));
+      if (filteredVms.length !== f.vmNames.length) {
+        folderChanged = true;
+      }
+      return { ...f, vmNames: filteredVms };
+    });
+
+    if (folderChanged) {
+      setFolders(nextFolders);
+      return;
+    }
+
+    // 2. Clean topLevelOrder
+    const vmsInFolders = new Set<string>();
+    folders.forEach((f) => {
+      f.vmNames.forEach((name) => {
+        if (activeVmNames.has(name)) {
+          vmsInFolders.add(name);
+        }
+      });
+    });
+
+    setTopLevelOrder((prevOrder) => {
+      let nextOrder = prevOrder.filter((item) => {
+        if (item.startsWith("folder_")) {
+          return folders.some((f) => f.id === item);
+        }
+        return activeVmNames.has(item) && !vmsInFolders.has(item);
+      });
+
+      folders.forEach((f) => {
+        if (!nextOrder.includes(f.id)) {
+          nextOrder.push(f.id);
+        }
+      });
+
+      domains.forEach((vm) => {
+        if (!nextOrder.includes(vm.name) && !vmsInFolders.has(vm.name)) {
+          nextOrder.push(vm.name);
+        }
+      });
+
+      if (JSON.stringify(prevOrder) === JSON.stringify(nextOrder)) {
+        return prevOrder;
+      }
+      return nextOrder;
+    });
+  }, [folders, domains]);
+
+
+
   useEffect(() => {
     fetchDomains();
 
@@ -355,6 +458,48 @@ function App() {
       window.removeEventListener("click", handleWindowClick);
     };
   }, []);
+
+  // Restore and persist window size
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    const restoreWindowSize = async () => {
+      try {
+        const appWindow = getCurrentWindow();
+        
+        // Restore size
+        const savedSize = localStorage.getItem("vessel-window-size");
+        if (savedSize) {
+          const { width, height } = JSON.parse(savedSize);
+          await appWindow.setSize(new LogicalSize(width, height));
+        }
+
+        // Listen for resize events
+        const unsubscribe = await appWindow.onResized(async () => {
+          const size = await appWindow.innerSize();
+          const factor = await appWindow.scaleFactor();
+          const logical = size.toLogical(factor);
+          localStorage.setItem("vessel-window-size", JSON.stringify({
+            width: logical.width,
+            height: logical.height
+          }));
+        });
+
+        unlisten = unsubscribe;
+      } catch (err) {
+        console.error("Failed to restore/save window size:", err);
+      }
+    };
+
+    restoreWindowSize();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []);
+
 
   const prevSelectedRef = useRef<string[]>([]);
 
@@ -390,6 +535,266 @@ function App() {
   }, [activeTab, selectedVmNames]);
 
 
+
+  // Drag and drop event handlers
+  const handleVmDragStart = (e: React.DragEvent, vmName: string) => {
+    setDraggedItem({ type: "vm", id: vmName });
+    e.dataTransfer.setData("text/plain", vmName);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleFolderDragStart = (e: React.DragEvent, folderId: string) => {
+    setDraggedItem({ type: "folder", id: folderId });
+    e.dataTransfer.setData("text/plain", folderId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+    if (draggedItem.id === targetId) return;
+
+    setDragOverItem(targetId);
+
+    // Calculate insert position (before / after) based on bounding rect Y offset
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relativeY = e.clientY - rect.top;
+    const isUpperHalf = relativeY < rect.height / 2;
+
+    setDragInsertion({
+      targetId,
+      position: isUpperHalf ? "before" : "after",
+    });
+  };
+
+  const handleDragLeave = () => {
+    setDragOverItem(null);
+    setDragInsertion(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverItem(null);
+    setDragInsertion(null);
+  };
+
+  const handleDropOnItem = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const insertion = dragInsertion;
+    setDragOverItem(null);
+    setDragInsertion(null);
+    setDraggedItem(null);
+    if (!draggedItem || !insertion) return;
+
+    if (draggedItem.type === "vm") {
+      const draggedVm = draggedItem.id;
+      if (draggedVm === targetId) return;
+
+      // 1. Remove dragged VM from its current location
+      let sourceFolderId: string | null = null;
+      folders.forEach((f) => {
+        if (f.vmNames.includes(draggedVm)) sourceFolderId = f.id;
+      });
+
+      if (sourceFolderId) {
+        setFolders((prev) =>
+          prev.map((f) => (f.id === sourceFolderId ? { ...f, vmNames: f.vmNames.filter((v) => v !== draggedVm) } : f))
+        );
+      } else {
+        setTopLevelOrder((prev) => prev.filter((v) => v !== draggedVm));
+      }
+
+      // 2. Identify the target folder
+      let targetFolderId: string | null = null;
+      folders.forEach((f) => {
+        if (f.vmNames.includes(targetId)) targetFolderId = f.id;
+      });
+
+      // 3. Insert relative to target VM
+      if (targetFolderId) {
+        setFolders((prev) =>
+          prev.map((f) => {
+            if (f.id === targetFolderId) {
+              const newVms = f.vmNames.filter((v) => v !== draggedVm);
+              const targetIdx = newVms.indexOf(targetId);
+              const insertIdx = insertion.position === "before" ? targetIdx : targetIdx + 1;
+              newVms.splice(insertIdx, 0, draggedVm);
+              return { ...f, vmNames: newVms };
+            }
+            return f;
+          })
+        );
+      } else {
+        setTopLevelOrder((prev) => {
+          const newOrder = prev.filter((v) => v !== draggedVm);
+          const targetIdx = newOrder.indexOf(targetId);
+          const insertIdx = insertion.position === "before" ? targetIdx : targetIdx + 1;
+          newOrder.splice(insertIdx, 0, draggedVm);
+          return newOrder;
+        });
+      }
+    } else if (draggedItem.type === "folder") {
+      const draggedFolderId = draggedItem.id;
+      let targetTopLevelItem = targetId;
+      folders.forEach((f) => {
+        if (f.vmNames.includes(targetId)) {
+          targetTopLevelItem = f.id;
+        }
+      });
+
+      if (draggedFolderId === targetTopLevelItem) return;
+
+      setTopLevelOrder((prev) => {
+        const newOrder = prev.filter((x) => x !== draggedFolderId);
+        const targetIdx = newOrder.indexOf(targetTopLevelItem);
+        const insertIdx = insertion.position === "before" ? targetIdx : targetIdx + 1;
+        newOrder.splice(insertIdx, 0, draggedFolderId);
+        return newOrder;
+      });
+    }
+  };
+
+  const handleDropOnFolderHeader = (e: React.DragEvent, targetFolderId: string) => {
+    e.preventDefault();
+    const insertion = dragInsertion;
+    setDragOverItem(null);
+    setDragInsertion(null);
+    setDraggedItem(null);
+    if (!draggedItem) return;
+
+    if (draggedItem.type === "vm") {
+      const draggedVm = draggedItem.id;
+      let sourceFolderId: string | null = null;
+      folders.forEach((f) => {
+        if (f.vmNames.includes(draggedVm)) sourceFolderId = f.id;
+      });
+
+      if (sourceFolderId === targetFolderId) return;
+
+      if (sourceFolderId) {
+        setFolders((prev) =>
+          prev.map((f) => (f.id === sourceFolderId ? { ...f, vmNames: f.vmNames.filter((v) => v !== draggedVm) } : f))
+        );
+      } else {
+        setTopLevelOrder((prev) => prev.filter((v) => v !== draggedVm));
+      }
+
+      setFolders((prev) =>
+        prev.map((f) => (f.id === targetFolderId ? { ...f, vmNames: [draggedVm, ...f.vmNames] } : f))
+      );
+    } else if (draggedItem.type === "folder") {
+      const draggedFolderId = draggedItem.id;
+      if (draggedFolderId === targetFolderId) return;
+      if (!insertion) return;
+
+      setTopLevelOrder((prev) => {
+        const newOrder = prev.filter((x) => x !== draggedFolderId);
+        const targetIdx = newOrder.indexOf(targetFolderId);
+        const insertIdx = insertion.position === "before" ? targetIdx : targetIdx + 1;
+        newOrder.splice(insertIdx, 0, draggedFolderId);
+        return newOrder;
+      });
+    }
+  };
+
+  const handleDropOnContainer = (e: React.DragEvent) => {
+    if (e.target !== e.currentTarget) return;
+    e.preventDefault();
+    setDragOverItem(null);
+    setDragInsertion(null);
+    setDraggedItem(null);
+    if (!draggedItem) return;
+
+    if (draggedItem.type === "vm") {
+      const draggedVm = draggedItem.id;
+      let sourceFolderId: string | null = null;
+      folders.forEach((f) => {
+        if (f.vmNames.includes(draggedVm)) sourceFolderId = f.id;
+      });
+
+      if (sourceFolderId) {
+        setFolders((prev) =>
+          prev.map((f) => (f.id === sourceFolderId ? { ...f, vmNames: f.vmNames.filter((v) => v !== draggedVm) } : f))
+        );
+      } else {
+        setTopLevelOrder((prev) => prev.filter((v) => v !== draggedVm));
+      }
+
+      setTopLevelOrder((prev) => {
+        if (prev.includes(draggedVm)) return prev;
+        return [...prev, draggedVm];
+      });
+    }
+  };
+
+  // Folder creation / deletion
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return;
+    const folderId = `folder_${Date.now()}`;
+    const newFolder: Folder = {
+      id: folderId,
+      name: newFolderName.trim(),
+      collapsed: false,
+      vmNames: [],
+    };
+    setFolders((prev) => [...prev, newFolder]);
+    setTopLevelOrder((prev) => [...prev, folderId]);
+    setNewFolderName("");
+    setIsCreatingFolder(false);
+  };
+
+  const handleDeleteFolder = (folderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const targetFolder = folders.find((f) => f.id === folderId);
+    if (!targetFolder) return;
+
+    const vmsToReturn = targetFolder.vmNames;
+
+    setFolders((prev) => prev.filter((f) => f.id !== folderId));
+    setTopLevelOrder((prevOrder) => {
+      const idx = prevOrder.indexOf(folderId);
+      const nextOrder = prevOrder.filter((x) => x !== folderId);
+      if (idx !== -1) {
+        nextOrder.splice(idx, 0, ...vmsToReturn);
+      } else {
+        nextOrder.push(...vmsToReturn);
+      }
+      return nextOrder;
+    });
+  };
+
+  const toggleFolderCollapse = (folderId: string) => {
+    setFolders((prev) =>
+      prev.map((f) => (f.id === folderId ? { ...f, collapsed: !f.collapsed } : f))
+    );
+  };
+
+  const moveSelectedVmsToFolder = (folderId: string | null) => {
+    selectedVmNames.forEach((vmName) => {
+      setFolders((prev) =>
+        prev.map((f) => ({
+          ...f,
+          vmNames: f.vmNames.filter((name) => name !== vmName),
+        }))
+      );
+
+      if (folderId) {
+        setTopLevelOrder((prev) => prev.filter((name) => name !== vmName));
+      } else {
+        setTopLevelOrder((prev) => {
+          if (prev.includes(vmName)) return prev;
+          return [...prev, vmName];
+        });
+      }
+    });
+
+    if (folderId) {
+      setFolders((prev) =>
+        prev.map((f) => (f.id === folderId ? { ...f, vmNames: [...f.vmNames, ...selectedVmNames] } : f))
+      );
+    }
+    setContextMenu(null);
+  };
 
   // Multi-select Click Handler
   const handleItemClick = (e: React.MouseEvent, name: string) => {
@@ -593,59 +998,203 @@ function App() {
         {/* List Controls */}
         <div className="list-controls">
           <span className="list-title">Environments</span>
-          <button
-            className={`btn-refresh ${loading ? "loading" : ""}`}
-            onClick={() => fetchDomains()}
-            disabled={loading}
-            title="Refresh list"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+            <button
+              className="btn-add-folder-trigger"
+              onClick={() => setIsCreatingFolder((prev) => !prev)}
+              title="新增資料夾"
             >
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-            </svg>
-          </button>
+              📁⁺
+            </button>
+            <button
+              className={`btn-refresh ${loading ? "loading" : ""}`}
+              onClick={() => fetchDomains()}
+              disabled={loading}
+              title="Refresh list"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        {/* VM Vertical List */}
-        <div className="vm-list">
-          {domains.map((vm) => {
-            const isSelected = selectedVmNames.includes(vm.name);
-            const stateInfo = getStateInfo(vm.state);
+        {isCreatingFolder && (
+          <div className="folder-create-container">
+            <input
+              type="text"
+              className="input-folder-name"
+              placeholder="資料夾名稱..."
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateFolder();
+                if (e.key === "Escape") setIsCreatingFolder(false);
+              }}
+              autoFocus
+            />
+            <button className="btn-folder-create-confirm" onClick={handleCreateFolder}>✓</button>
+            <button className="btn-folder-create-cancel" onClick={() => setIsCreatingFolder(false)}>✗</button>
+          </div>
+        )}
 
-            return (
-              <div
-                key={vm.name}
-                className={`vm-list-item ${isSelected ? "selected" : ""}`}
-                onClick={(e) => handleItemClick(e, vm.name)}
-                onContextMenu={(e) => handleContextMenu(e, vm.name)}
-              >
-                <div className="vm-item-checkbox-container" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    className="vm-item-checkbox"
-                    checked={isSelected}
-                    onChange={() => handleCheckboxChange(vm.name)}
-                  />
+        {/* VM Vertical List */}
+        <div
+          className={`vm-list ${draggedItem ? "dragging-active" : ""}`}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDropOnContainer}
+        >
+          {topLevelOrder.map((itemId) => {
+            if (itemId.startsWith("folder_")) {
+              const folder = folders.find((f) => f.id === itemId);
+              if (!folder) return null;
+              
+              const isInsertionTarget = dragInsertion?.targetId === folder.id;
+              const isVmHovering = dragOverItem === folder.id && draggedItem?.type === "vm";
+              const folderHeaderClass = `folder-header ${isVmHovering ? "drag-over-folder-header" : ""} ${
+                isInsertionTarget && draggedItem?.type === "folder"
+                  ? (dragInsertion.position === "before" ? "drag-insert-before" : "drag-insert-after")
+                  : ""
+              }`;
+
+              return (
+                <div
+                  key={folder.id}
+                  className="folder-item"
+                  onDragOver={(e) => handleDragOver(e, folder.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDropOnFolderHeader(e, folder.id)}
+                >
+                  {/* Folder Header */}
+                  <div
+                    className={folderHeaderClass}
+                    draggable
+                    onDragStart={(e) => handleFolderDragStart(e, folder.id)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => toggleFolderCollapse(folder.id)}
+                  >
+                    <span className={`folder-caret ${folder.collapsed ? "collapsed" : ""}`}>▼</span>
+                    <span className="folder-icon">{folder.collapsed ? "📁" : "📂"}</span>
+                    <span className="folder-name">{folder.name}</span>
+                    <button
+                      className="btn-delete-folder"
+                      onClick={(e) => handleDeleteFolder(folder.id, e)}
+                      title="刪除資料夾"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+
+                  {/* Folder Children VMs */}
+                  {!folder.collapsed && (
+                    <div className="folder-children">
+                      {folder.vmNames.map((vmName) => {
+                        const vm = domains.find((d) => d.name === vmName);
+                        if (!vm) return null;
+                        const isSelected = selectedVmNames.includes(vm.name);
+                        const stateInfo = getStateInfo(vm.state);
+                        
+                        const isInsertionTargetVm = dragInsertion?.targetId === vm.name;
+                        const vmClass = `vm-list-item ${isSelected ? "selected" : ""} ${
+                          isInsertionTargetVm ? (dragInsertion.position === "before" ? "drag-insert-before" : "drag-insert-after") : ""
+                        }`;
+
+                        return (
+                          <div
+                            key={vm.name}
+                            className={vmClass}
+                            draggable
+                            onDragStart={(e) => handleVmDragStart(e, vm.name)}
+                            onDragOver={(e) => handleDragOver(e, vm.name)}
+                            onDragLeave={handleDragLeave}
+                            onDragEnd={handleDragEnd}
+                            onDrop={(e) => handleDropOnItem(e, vm.name)}
+                            onClick={(e) => handleItemClick(e, vm.name)}
+                            onContextMenu={(e) => handleContextMenu(e, vm.name)}
+                          >
+                            <div className="vm-item-checkbox-container" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                className="vm-item-checkbox"
+                                checked={isSelected}
+                                onChange={() => handleCheckboxChange(vm.name)}
+                              />
+                            </div>
+                            <div className="vm-item-details">
+                              <span className="vm-item-name">{vm.name}</span>
+                              <span className="vm-item-type">
+                                {vm.os_type.toLowerCase().includes("hvm") ? "KVM VM" : "LXC Container"}
+                              </span>
+                            </div>
+                            <div className="vm-item-status">
+                              <span className={`status-dot-mini ${stateInfo.className}`}></span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {folder.vmNames.length === 0 && (
+                        <div style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", color: "#64748B", fontStyle: "italic" }}>
+                          拖移 VM 到此處...
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="vm-item-details">
-                  <span className="vm-item-name">{vm.name}</span>
-                  <span className="vm-item-type">
-                    {vm.os_type.toLowerCase().includes("hvm") ? "KVM VM" : "LXC Container"}
-                  </span>
+              );
+            } else {
+              // Top-level VM
+              const vm = domains.find((d) => d.name === itemId);
+              if (!vm) return null;
+              const isSelected = selectedVmNames.includes(vm.name);
+              const stateInfo = getStateInfo(vm.state);
+              
+              const isInsertionTargetVm = dragInsertion?.targetId === vm.name;
+              const vmClass = `vm-list-item ${isSelected ? "selected" : ""} ${
+                isInsertionTargetVm ? (dragInsertion.position === "before" ? "drag-insert-before" : "drag-insert-after") : ""
+              }`;
+
+              return (
+                <div
+                  key={vm.name}
+                  className={vmClass}
+                  draggable
+                  onDragStart={(e) => handleVmDragStart(e, vm.name)}
+                  onDragOver={(e) => handleDragOver(e, vm.name)}
+                  onDragLeave={handleDragLeave}
+                  onDragEnd={handleDragEnd}
+                  onDrop={(e) => handleDropOnItem(e, vm.name)}
+                  onClick={(e) => handleItemClick(e, vm.name)}
+                  onContextMenu={(e) => handleContextMenu(e, vm.name)}
+                >
+                  <div className="vm-item-checkbox-container" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="vm-item-checkbox"
+                      checked={isSelected}
+                      onChange={() => handleCheckboxChange(vm.name)}
+                    />
+                  </div>
+                  <div className="vm-item-details">
+                    <span className="vm-item-name">{vm.name}</span>
+                    <span className="vm-item-type">
+                      {vm.os_type.toLowerCase().includes("hvm") ? "KVM VM" : "LXC Container"}
+                    </span>
+                  </div>
+                  <div className="vm-item-status">
+                    <span className={`status-dot-mini ${stateInfo.className}`}></span>
+                  </div>
                 </div>
-                <div className="vm-item-status">
-                  <span className={`status-dot-mini ${stateInfo.className}`}></span>
-                </div>
-              </div>
-            );
+              );
+            }
           })}
 
           {domains.length === 0 && !loading && (
@@ -924,6 +1473,30 @@ function App() {
           >
             <span className="menu-icon">⟳</span> Reset (重設)
           </button>
+
+          {/* Folders Management in Context Menu */}
+          <div className="context-menu-separator"></div>
+          {folders.map((f) => {
+            const allSelectedInFolder = selectedVmNames.every((name) => f.vmNames.includes(name));
+            if (allSelectedInFolder) return null;
+            return (
+              <button
+                key={f.id}
+                className="context-menu-item"
+                onClick={() => moveSelectedVmsToFolder(f.id)}
+              >
+                <span className="menu-icon">📁</span> 移動至「{f.name}」
+              </button>
+            );
+          })}
+          {selectedVmNames.some((name) => folders.some((f) => f.vmNames.includes(name))) && (
+            <button
+              className="context-menu-item"
+              onClick={() => moveSelectedVmsToFolder(null)}
+            >
+              <span className="menu-icon">📤</span> 移出資料夾
+            </button>
+          )}
         </div>
       )}
     </div>
