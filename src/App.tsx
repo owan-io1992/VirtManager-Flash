@@ -23,6 +23,189 @@ interface Folder {
 }
 
 
+const translations = {
+  zh: {
+    brand_subtitle: "KVM & LXC 管理器",
+    conn_connected: "虛擬化連線已啟動",
+    btn_start: "開機",
+    btn_stop: "關機",
+    btn_settings: "軟體設定",
+    stats_total: "總計",
+    stats_active: "執行中",
+    stats_stopped: "已停止",
+    title_environments: "環境列表",
+    btn_add_folder: "新增資料夾",
+    placeholder_new_folder: "資料夾名稱...",
+    empty_vms: "未找到虛擬機",
+    tab_status: "狀態 (Status)",
+    tab_console: "Console 介面",
+    tab_settings: "設定 (Settings)",
+    batch_mode: "批次選取模式",
+    selected_envs: "批次選取 ({count} 台環境)",
+    total_vcpu: "總計 vCPU 核心",
+    total_mem: "總計配置記憶體",
+    selected_vms: "已選取的虛擬機：",
+    cores: "核心",
+    max_memory: "最大記憶體",
+    cpu_usage: "CPU 用量",
+    memory_usage: "記憶體用量",
+    console_connecting: "正在獲取主控台連接埠...",
+    console_error_graphics: "請確認此虛擬機在 libvirt 中已配置圖形顯示器 (SPICE/VNC)。",
+    console_disconnected: "主控台已中斷連線。虛擬機處於關機狀態。",
+    console_disconnected_sub: "請先將虛擬機開機，即可開啟圖形化主控台畫面。",
+    ctx_start: "開機 (Start)",
+    ctx_pause: "暫停 (Pause)",
+    ctx_resume: "恢復 (Resume)",
+    ctx_reboot: "重新啟動 (Reboot)",
+    ctx_shutdown: "關機 (Shutdown)",
+    ctx_force_stop: "強制關機 (Force Stop)",
+    ctx_reset: "Reset (重設)",
+    ctx_move_to: "移動至「{name}」",
+    ctx_move_out: "移出資料夾",
+    modal_title: "Vessel 軟體偏好設定",
+    modal_conn: "虛擬化連線",
+    modal_networks: "虛擬網路",
+    modal_storage: "儲存池",
+    modal_theme: "外觀主題",
+    modal_lang: "語言切換",
+    pref_libvirt_uri: "Libvirt 連線位址",
+    pref_autoconnect: "啟動時自動連線",
+    pref_system_resources: "系統資源狀態",
+    pref_theme_dark: "深色 (Dark)",
+    pref_theme_light: "淺色 (Light)",
+    pref_lang_zh: "繁體中文",
+    pref_lang_en: "English",
+    vm_settings_simple: "簡易設定",
+    vm_settings_adv: "進階設定",
+    vm_settings_cpu: "處理器 (CPU)",
+    vm_settings_mem: "記憶體 (Memory)",
+    vm_settings_storage: "儲存裝置 (Storage)",
+    vm_settings_network: "網路設備 (Network)",
+    vm_settings_other: "其他設定 (Other)",
+    vm_settings_save: "儲存變更",
+    vm_settings_vcpu: "配置核心數",
+    vm_settings_max_mem: "最大配置記憶體",
+    vm_settings_disk_path: "虛擬硬碟路徑",
+    vm_settings_disk_size: "容量大小",
+    vm_settings_net_source: "網路來源橋接器",
+    vm_settings_net_model: "網卡驅動模型",
+    vm_settings_boot_device: "開機載入設備",
+    vm_settings_graphics: "圖形顯示協議",
+    vm_settings_autoconstart: "隨主機自動開機",
+    net_name: "名稱",
+    net_device: "裝置",
+    net_state: "狀態",
+    net_active: "已啟動",
+    net_inactive: "已停止",
+    net_autostart: "開機啟動",
+    net_on_boot: "開機時自動執行",
+    net_ipv4: "IPv4 網路配置",
+    net_subnet: "網段位址",
+    net_dhcp: "DHCP 範圍",
+    net_forwarding: "路由轉發 (Forwarding)",
+    store_pool_name: "儲存池名稱",
+    store_pool_size: "容量空間",
+    store_pool_location: "儲存目錄路徑",
+    store_pool_autostart: "隨主機啟動",
+    store_volumes: "虛擬硬碟磁區 (Volumes)",
+    store_volume_name: "硬碟名稱",
+    store_volume_size: "容量",
+    store_volume_format: "格式",
+    store_volume_used_by: "使用者 VM",
+    btn_close: "關閉",
+  },
+  en: {
+    brand_subtitle: "KVM & LXC Manager",
+    conn_connected: "Hypervisor Connected",
+    btn_start: "Start",
+    btn_stop: "Shutdown",
+    btn_settings: "Preferences",
+    stats_total: "Total",
+    stats_active: "Active",
+    stats_stopped: "Stopped",
+    title_environments: "Environments",
+    btn_add_folder: "Add Folder",
+    placeholder_new_folder: "Folder Name...",
+    empty_vms: "No VMs found",
+    tab_status: "Status",
+    tab_console: "Console",
+    tab_settings: "Settings",
+    batch_mode: "Batch Control Mode",
+    selected_envs: "Batch Selection ({count} Env)",
+    total_vcpu: "Total vCPU Cores",
+    total_mem: "Total Allocated Memory",
+    selected_vms: "Selected VMs:",
+    cores: "Cores",
+    max_memory: "Max Memory",
+    cpu_usage: "CPU",
+    memory_usage: "Memory",
+    console_connecting: "Fetching graphics console port...",
+    console_error_graphics: "Verify if this VM has a graphic display (SPICE/VNC) configured in libvirt.",
+    console_disconnected: "Console disconnected. VM is powered off.",
+    console_disconnected_sub: "Power on the VM to open the graphical console display.",
+    ctx_start: "Start",
+    ctx_pause: "Pause",
+    ctx_resume: "Resume",
+    ctx_reboot: "Reboot",
+    ctx_shutdown: "Shutdown",
+    ctx_force_stop: "Force Stop",
+    ctx_reset: "Reset",
+    ctx_move_to: "Move to \"{name}\"",
+    ctx_move_out: "Remove from Folder",
+    modal_title: "Vessel Preferences",
+    modal_conn: "Connection",
+    modal_networks: "Virtual Networks",
+    modal_storage: "Storage Pools",
+    modal_theme: "Appearance Theme",
+    modal_lang: "Language Settings",
+    pref_libvirt_uri: "Libvirt URI Connection",
+    pref_autoconnect: "Autoconnect on Startup",
+    pref_system_resources: "System Resource Usage",
+    pref_theme_dark: "Dark Theme",
+    pref_theme_light: "Light Theme",
+    pref_lang_zh: "繁體中文",
+    pref_lang_en: "English",
+    vm_settings_simple: "Simple Mode",
+    vm_settings_adv: "Advanced Mode",
+    vm_settings_cpu: "CPU Settings",
+    vm_settings_mem: "Memory Allocation",
+    vm_settings_storage: "Storage Disks",
+    vm_settings_network: "Network Adapters",
+    vm_settings_other: "Other Options",
+    vm_settings_save: "Save Changes",
+    vm_settings_vcpu: "Allocated vCPUs",
+    vm_settings_max_mem: "Max Configured Memory",
+    vm_settings_disk_path: "Disk Target Location",
+    vm_settings_disk_size: "Disk Capacity",
+    vm_settings_net_source: "Host Network Bridge",
+    vm_settings_net_model: "Device Driver Model",
+    vm_settings_boot_device: "Primary Boot Device",
+    vm_settings_graphics: "Display Protocol Type",
+    vm_settings_autoconstart: "Start with Host OS",
+    net_name: "Name",
+    net_device: "Device",
+    net_state: "State",
+    net_active: "Active",
+    net_inactive: "Inactive",
+    net_autostart: "Autostart",
+    net_on_boot: "On Boot",
+    net_ipv4: "IPv4 Network configuration",
+    net_subnet: "Subnet Range",
+    net_dhcp: "DHCP IP Pool",
+    net_forwarding: "Forwarding Mode",
+    store_pool_name: "Pool Name",
+    store_pool_size: "Capacity Size",
+    store_pool_location: "Pool Path Location",
+    store_pool_autostart: "Start on Host boot",
+    store_volumes: "Storage Volumes",
+    store_volume_name: "Volume Name",
+    store_volume_size: "Size",
+    store_volume_format: "Format",
+    store_volume_used_by: "Allocated VM",
+    btn_close: "Close",
+  }
+};
+
 // Libvirt states mapping
 const getStateInfo = (stateNum: number) => {
   switch (stateNum) {
@@ -248,6 +431,20 @@ function App() {
     return (localStorage.getItem("vessel-theme") as "dark" | "light") || "dark";
   });
 
+  const [lang, setLang] = useState<"zh" | "en">(() => {
+    return (localStorage.getItem("vessel-lang") as "zh" | "en") || "zh";
+  });
+
+  const t = (key: keyof typeof translations.zh, replaceMap?: Record<string, string | number>) => {
+    let text = translations[lang][key] || translations.zh[key] || "";
+    if (replaceMap) {
+      Object.keys(replaceMap).forEach((k) => {
+        text = text.replace(`{${k}}`, String(replaceMap[k]));
+      });
+    }
+    return text;
+  };
+
   const [folders, setFolders] = useState<Folder[]>(() => {
     const saved = localStorage.getItem("vessel-folders");
     return saved ? JSON.parse(saved) : [];
@@ -265,11 +462,80 @@ function App() {
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
   const [dragInsertion, setDragInsertion] = useState<{ targetId: string; position: "before" | "after" } | null>(null);
 
+  // App Preferences states
+  interface SystemResources {
+    cpu_cores: number;
+    cpu_threads: number;
+    mem_total_kb: number;
+    mem_available_kb: number;
+    os_platform: string;
+  }
+  const [systemResources, setSystemResources] = useState<SystemResources | null>(null);
+  const [showPrefModal, setShowPrefModal] = useState(false);
+  const [prefCategory, setPrefCategory] = useState<"connection" | "networks" | "storage" | "theme" | "language">("connection");
+  const [libvirtUri, setLibvirtUri] = useState("qemu:///system");
+  const [autoconnect, setAutoconnect] = useState(true);
+
+  interface NetworkItem {
+    id: string;
+    name: string;
+    device: string;
+    state: string;
+    autostart: boolean;
+    subnet: string;
+    dhcp_start: string;
+    dhcp_end: string;
+    forwarding: string;
+  }
+
+  interface VolumeItem {
+    name: string;
+    size: string;
+    format: string;
+    used_by: string;
+  }
+
+  interface StoragePoolItem {
+    id: string;
+    name: string;
+    pool_type: string;
+    size_gb: number;
+    used_gb: number;
+    location: string;
+    state: string;
+    autostart: boolean;
+    volumes: VolumeItem[];
+  }
+
+  const [networks, setNetworks] = useState<NetworkItem[]>([]);
+  const [selectedNetworkId, setSelectedNetworkId] = useState("");
+  const [storagePools, setStoragePools] = useState<StoragePoolItem[]>([]);
+  const [selectedStorageId, setSelectedStorageId] = useState("");
+
+  // VM Settings Edit states
+  const [vmSettingsMode, setVmSettingsMode] = useState<"simple" | "advanced">("simple");
+  const [vmSettingsCategory, setVmSettingsCategory] = useState<"cpu" | "memory" | "storage" | "network" | "other">("cpu");
+
+  const [vmCpuCores, setVmCpuCores] = useState(2);
+  const [vmMemoryMb, setVmMemoryMb] = useState(4096);
+  const [vmMaxMemoryMb, setVmMaxMemoryMb] = useState(4096);
+  const [vmDiskPath, setVmDiskPath] = useState("");
+  const [vmDiskSize, setVmDiskSize] = useState(50);
+  const [vmNetSource, setVmNetSource] = useState("default");
+  const [vmNetModel, setVmNetModel] = useState("virtio");
+  const [vmAutostart, setVmAutostart] = useState(false);
+  const [vmBootDevice, setVmBootDevice] = useState("hd");
+  const [vmGraphicsType, setVmGraphicsType] = useState("spice");
 
   // Sync state changes with localStorage
   useEffect(() => {
     localStorage.setItem("vessel-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("vessel-lang", lang);
+  }, [lang]);
+
 
   useEffect(() => {
     localStorage.setItem("vessel-folders", JSON.stringify(folders));
@@ -280,7 +546,7 @@ function App() {
   }, [topLevelOrder]);
 
   // Tabs & Console States
-  const [activeTab, setActiveTab] = useState<"status" | "console">("status");
+  const [activeTab, setActiveTab] = useState<"status" | "console" | "settings">("status");
   const [spicePort, setSpicePort] = useState<number | null>(null);
   const [spiceError, setSpiceError] = useState<string | null>(null);
   const [spiceLoading, setSpiceLoading] = useState(false);
@@ -300,9 +566,47 @@ function App() {
     }[];
   }>({});
 
+  const fetchSystemResources = async () => {
+    try {
+      const res = await invoke<SystemResources>("get_system_resources");
+      setSystemResources(res);
+    } catch (err) {
+      console.error("Failed to fetch system resources:", err);
+    }
+  };
+
+  const fetchNetworks = async () => {
+    try {
+      const list = await invoke<NetworkItem[]>("list_networks");
+      setNetworks(list);
+      setSelectedNetworkId((prev) => {
+        if (list.some((n) => n.id === prev)) return prev;
+        return list.length > 0 ? list[0].id : "";
+      });
+    } catch (err) {
+      console.error("Failed to fetch networks:", err);
+    }
+  };
+
+  const fetchStoragePools = async () => {
+    try {
+      const list = await invoke<StoragePoolItem[]>("list_storage_pools");
+      setStoragePools(list);
+      setSelectedStorageId((prev) => {
+        if (list.some((p) => p.id === prev)) return prev;
+        return list.length > 0 ? list[0].id : "";
+      });
+    } catch (err) {
+      console.error("Failed to fetch storage pools:", err);
+    }
+  };
+
   const fetchDomains = async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
+    fetchSystemResources();
+    fetchNetworks();
+    fetchStoragePools();
     try {
       const list = await invoke<DomainItem[]>("list_domains");
       
@@ -533,6 +837,24 @@ function App() {
         });
     }
   }, [activeTab, selectedVmNames]);
+
+  // Load VM Settings when selected VM changes
+  useEffect(() => {
+    const selectedVm = domains.find((d) => d.name === selectedVmNames[0]);
+    if (selectedVm) {
+      setVmCpuCores(selectedVm.vcpu_count);
+      setVmMemoryMb(Math.round(selectedVm.memory / 1024) || 2048);
+      setVmMaxMemoryMb(Math.round(selectedVm.max_mem / 1024) || 2048);
+      setVmDiskPath(`/var/libvirt/images/${selectedVm.name}.qcow2`);
+      setVmDiskSize(selectedVm.max_mem > 4194304 ? 80 : 40);
+      setVmNetSource(selectedVm.name.includes("win") ? "hostOnly" : "default");
+      setVmNetModel("virtio");
+      setVmAutostart(selectedVm.state === 1);
+      setVmBootDevice("hd");
+      setVmGraphicsType("spice");
+    }
+  }, [selectedVmNames, domains]);
+
 
 
 
@@ -931,20 +1253,23 @@ function App() {
               <span className="logo-icon">🚢</span>
               <div>
                 <h1>Vessel</h1>
-                <p className="subtitle">KVM & LXC Manager</p>
+                <p className="subtitle">{t("brand_subtitle")}</p>
               </div>
             </div>
             <button
               className="btn-theme"
-              onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-              title={theme === "dark" ? "切換至淺色主題" : "切換至深色主題"}
+              onClick={() => {
+                setPrefCategory("connection");
+                setShowPrefModal(true);
+              }}
+              title={t("btn_settings")}
             >
-              {theme === "dark" ? "☀️" : "🌙"}
+              ⚙️
             </button>
           </div>
           <div className="status-badge">
             <span className="status-dot"></span>
-            <span>Hypervisor Connected</span>
+            <span>{t("conn_connected")}</span>
           </div>
 
           {/* Batch Actions Bar under connection status */}
@@ -953,24 +1278,17 @@ function App() {
               className="btn-batch btn-start"
               onClick={() => handleBatchAction("start_domain")}
               disabled={isAnyActionLoading || !canStart}
-              title="開機"
+              title={t("btn_start")}
             >
-              <span className="btn-icon">▶</span> 開機
+              <span className="btn-icon">▶</span> {t("btn_start")}
             </button>
             <button
               className="btn-batch btn-stop"
               onClick={() => handleBatchAction("shutdown_domain")}
               disabled={isAnyActionLoading || !canShutdown}
-              title="關機"
+              title={t("btn_stop")}
             >
-              <span className="btn-icon">■</span> 關機
-            </button>
-            <button
-              className="btn-batch btn-settings"
-              disabled={isMultiSelect || selectedVmNames.length === 0 || isAnyActionLoading}
-              title={isMultiSelect ? "設定不支援多選操作" : "編輯設定"}
-            >
-              <span className="btn-icon">⚙</span> 設定
+              <span className="btn-icon">■</span> {t("btn_stop")}
             </button>
           </div>
         </div>
@@ -979,30 +1297,30 @@ function App() {
         <div className="stats-summary">
           <div className="stat-item">
             <span className="stat-val">{domains.length}</span>
-            <span className="stat-lbl">Total</span>
+            <span className="stat-lbl">{t("stats_total")}</span>
           </div>
           <div className="stat-item">
             <span className="stat-val" style={{ color: "#10B981" }}>
               {runningCount}
             </span>
-            <span className="stat-lbl">Active</span>
+            <span className="stat-lbl">{t("stats_active")}</span>
           </div>
           <div className="stat-item">
             <span className="stat-val" style={{ color: "#EF4444" }}>
               {stoppedCount}
             </span>
-            <span className="stat-lbl">Stopped</span>
+            <span className="stat-lbl">{t("stats_stopped")}</span>
           </div>
         </div>
 
         {/* List Controls */}
         <div className="list-controls">
-          <span className="list-title">Environments</span>
+          <span className="list-title">{t("title_environments")}</span>
           <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
             <button
               className="btn-add-folder-trigger"
               onClick={() => setIsCreatingFolder((prev) => !prev)}
-              title="新增資料夾"
+              title={t("btn_add_folder")}
             >
               📁⁺
             </button>
@@ -1033,7 +1351,7 @@ function App() {
             <input
               type="text"
               className="input-folder-name"
-              placeholder="資料夾名稱..."
+              placeholder={t("placeholder_new_folder")}
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               onKeyDown={(e) => {
@@ -1143,7 +1461,7 @@ function App() {
                       })}
                       {folder.vmNames.length === 0 && (
                         <div style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", color: "#64748B", fontStyle: "italic" }}>
-                          拖移 VM 到此處...
+                          {lang === "zh" ? "拖移 VM 到此處..." : "Drag VM here..."}
                         </div>
                       )}
                     </div>
@@ -1199,7 +1517,7 @@ function App() {
 
           {domains.length === 0 && !loading && (
             <div style={{ textAlign: "center", color: "#64748B", padding: "2rem 0", fontSize: "0.85rem" }}>
-              No VMs found.
+              {t("empty_vms")}
             </div>
           )}
         </div>
@@ -1225,13 +1543,19 @@ function App() {
                   className={`tab-item ${activeTab === "status" ? "active" : ""}`}
                   onClick={() => setActiveTab("status")}
                 >
-                  狀態 (Status)
+                  {t("tab_status")}
                 </button>
                 <button
                   className={`tab-item ${activeTab === "console" ? "active" : ""}`}
                   onClick={() => setActiveTab("console")}
                 >
-                  Console 介面
+                  {t("tab_console")}
+                </button>
+                <button
+                  className={`tab-item ${activeTab === "settings" ? "active" : ""}`}
+                  onClick={() => setActiveTab("settings")}
+                >
+                  {t("tab_settings")}
                 </button>
               </div>
             )}
@@ -1342,20 +1666,20 @@ function App() {
                       </div>
 
                     </>
-                  ) : (
+                  ) : activeTab === "console" ? (
                     // Console Tab
                     <div className="console-panel">
                       {selectedVm.state === 1 ? (
                         <div className="graphic-console-screen" style={{ width: "100%", height: "100%", padding: 0 }}>
                           {spiceLoading && (
                             <div className="spice-loading-spinner" style={{ padding: "3rem", color: "#24C6DC", fontWeight: 550, textAlign: "center" }}>
-                              正在獲取主控台連接埠...
+                              {t("console_connecting")}
                             </div>
                           )}
                           {spiceError && (
                             <div className="spice-error-container" style={{ padding: "3rem", color: "#EF4444", textAlign: "center" }}>
                               <p>{spiceError}</p>
-                              <p style={{ fontSize: "0.8rem", color: "#94A3B8" }}>請確認此虛擬機在 libvirt 中已配置圖形顯示器 (SPICE/VNC)。</p>
+                              <p style={{ fontSize: "0.8rem", color: "#94A3B8" }}>{t("console_error_graphics")}</p>
                             </div>
                           )}
                           {spicePort && (
@@ -1369,10 +1693,246 @@ function App() {
                       ) : (
                         <div className="terminal-offline-screen">
                           <span className="terminal-offline-icon">🔌</span>
-                          <p>主控台已中斷連線。虛擬機處於關機狀態。</p>
-                          <p className="terminal-subtext">請先將虛擬機開機，即可開啟圖形化主控台畫面。</p>
+                          <p>{t("console_disconnected")}</p>
+                          <p className="terminal-subtext">{t("console_disconnected_sub")}</p>
                         </div>
                       )}
+                    </div>
+                  ) : (
+                    // VM Settings Tab
+                    <div className="vm-settings-panel">
+                      <div className="vm-settings-header">
+                        <span className="details-name">{t("tab_settings")}</span>
+                        <div className="vm-settings-toggle-group">
+                          <button
+                            className={`btn-toggle-mode ${vmSettingsMode === "simple" ? "active" : ""}`}
+                            onClick={() => setVmSettingsMode("simple")}
+                          >
+                            {t("vm_settings_simple")}
+                          </button>
+                          <button
+                            className={`btn-toggle-mode ${vmSettingsMode === "advanced" ? "active" : ""}`}
+                            onClick={() => setVmSettingsMode("advanced")}
+                          >
+                            {t("vm_settings_adv")}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="vm-settings-body">
+                        {/* Left sidebar menu */}
+                        <div className="vm-settings-menu">
+                          <button
+                            className={`preferences-menu-item ${vmSettingsCategory === "cpu" ? "active" : ""}`}
+                            onClick={() => setVmSettingsCategory("cpu")}
+                          >
+                            {t("vm_settings_cpu")}
+                          </button>
+                          <button
+                            className={`preferences-menu-item ${vmSettingsCategory === "memory" ? "active" : ""}`}
+                            onClick={() => setVmSettingsCategory("memory")}
+                          >
+                            {t("vm_settings_mem")}
+                          </button>
+                          <button
+                            className={`preferences-menu-item ${vmSettingsCategory === "storage" ? "active" : ""}`}
+                            onClick={() => setVmSettingsCategory("storage")}
+                          >
+                            {t("vm_settings_storage")}
+                          </button>
+                          <button
+                            className={`preferences-menu-item ${vmSettingsCategory === "network" ? "active" : ""}`}
+                            onClick={() => setVmSettingsCategory("network")}
+                          >
+                            {t("vm_settings_network")}
+                          </button>
+                          <button
+                            className={`preferences-menu-item ${vmSettingsCategory === "other" ? "active" : ""}`}
+                            onClick={() => setVmSettingsCategory("other")}
+                          >
+                            {t("vm_settings_other")}
+                          </button>
+                        </div>
+
+                        {/* Right content panel */}
+                        <div className="vm-settings-content">
+                          {vmSettingsCategory === "cpu" && (
+                            <div className="settings-group">
+                              <div className="settings-group-title">{t("vm_settings_cpu")}</div>
+                              <div className="form-row">
+                                <span className="form-label">{t("vm_settings_vcpu")}</span>
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  value={vmCpuCores}
+                                  onChange={(e) => setVmCpuCores(Number(e.target.value))}
+                                  min={1}
+                                  max={128}
+                                />
+                              </div>
+                              {vmSettingsMode === "advanced" && (
+                                <div className="form-row">
+                                  <span className="form-label">CPU Topology</span>
+                                  <select className="form-select">
+                                    <option value="none">Automatic/Default</option>
+                                    <option value="custom">Custom Sockets/Cores/Threads</option>
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {vmSettingsCategory === "memory" && (
+                            <div className="settings-group">
+                              <div className="settings-group-title">{t("vm_settings_mem")}</div>
+                              <div className="form-row">
+                                <span className="form-label">{t("memory_usage")} (MB)</span>
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  value={vmMemoryMb}
+                                  onChange={(e) => setVmMemoryMb(Number(e.target.value))}
+                                  step={512}
+                                />
+                              </div>
+                              {vmSettingsMode === "advanced" && (
+                                <div className="form-row">
+                                  <span className="form-label">{t("vm_settings_max_mem")} (MB)</span>
+                                  <input
+                                    type="number"
+                                    className="form-input"
+                                    value={vmMaxMemoryMb}
+                                    onChange={(e) => setVmMaxMemoryMb(Number(e.target.value))}
+                                    step={512}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {vmSettingsCategory === "storage" && (
+                            <div className="settings-group">
+                              <div className="settings-group-title">{t("vm_settings_storage")}</div>
+                              <div className="form-row">
+                                <span className="form-label">{t("vm_settings_disk_path")}</span>
+                                <input
+                                  type="text"
+                                  className="form-input"
+                                  value={vmDiskPath}
+                                  onChange={(e) => setVmDiskPath(e.target.value)}
+                                  disabled={vmSettingsMode === "simple"}
+                                />
+                              </div>
+                              <div className="form-row">
+                                <span className="form-label">{t("vm_settings_disk_size")} (GB)</span>
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  value={vmDiskSize}
+                                  onChange={(e) => setVmDiskSize(Number(e.target.value))}
+                                  min={5}
+                                />
+                              </div>
+                              {vmSettingsMode === "advanced" && (
+                                <div className="form-row">
+                                  <span className="form-label">Disk Bus Type</span>
+                                  <select className="form-select">
+                                    <option value="virtio">VirtIO</option>
+                                    <option value="sata">SATA</option>
+                                    <option value="scsi">SCSI</option>
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {vmSettingsCategory === "network" && (
+                            <div className="settings-group">
+                              <div className="settings-group-title">{t("vm_settings_network")}</div>
+                              <div className="form-row">
+                                <span className="form-label">{t("vm_settings_net_source")}</span>
+                                <select
+                                  className="form-select"
+                                  value={vmNetSource}
+                                  onChange={(e) => setVmNetSource(e.target.value)}
+                                >
+                                  {networks.map((net) => (
+                                    <option key={net.id} value={net.id}>
+                                      {net.name} ({net.device})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              {vmSettingsMode === "advanced" && (
+                                <div className="form-row">
+                                  <span className="form-label">{t("vm_settings_net_model")}</span>
+                                  <select
+                                    className="form-select"
+                                    value={vmNetModel}
+                                    onChange={(e) => setVmNetModel(e.target.value)}
+                                  >
+                                    <option value="virtio">virtio</option>
+                                    <option value="e1000">e1000</option>
+                                    <option value="rtl8139">rtl8139</option>
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {vmSettingsCategory === "other" && (
+                            <div className="settings-group">
+                              <div className="settings-group-title">{t("vm_settings_other")}</div>
+                              <div className="form-row">
+                                <span className="form-label">{t("vm_settings_autoconstart")}</span>
+                                <input
+                                  type="checkbox"
+                                  className="form-checkbox"
+                                  checked={vmAutostart}
+                                  onChange={(e) => setVmAutostart(e.target.checked)}
+                                />
+                              </div>
+                              {vmSettingsMode === "advanced" && (
+                                <>
+                                  <div className="form-row">
+                                    <span className="form-label">{t("vm_settings_boot_device")}</span>
+                                    <select
+                                      className="form-select"
+                                      value={vmBootDevice}
+                                      onChange={(e) => setVmBootDevice(e.target.value)}
+                                    >
+                                      <option value="hd">Hard Disk</option>
+                                      <option value="cdrom">CDROM</option>
+                                      <option value="network">PXE Network</option>
+                                    </select>
+                                  </div>
+                                  <div className="form-row">
+                                    <span className="form-label">{t("vm_settings_graphics")}</span>
+                                    <select
+                                      className="form-select"
+                                      value={vmGraphicsType}
+                                      onChange={(e) => setVmGraphicsType(e.target.value)}
+                                    >
+                                      <option value="spice">SPICE</option>
+                                      <option value="vnc">VNC</option>
+                                      <option value="none">No Display</option>
+                                    </select>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          <button
+                            className="btn-save-settings"
+                            onClick={() => {
+                              alert(lang === "zh" ? "設定變更已成功套用至虛擬機！" : "VM settings saved successfully!");
+                            }}
+                          >
+                            {t("vm_settings_save")}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1497,6 +2057,285 @@ function App() {
               <span className="menu-icon">📤</span> 移出資料夾
             </button>
           )}
+        </div>
+      )}
+
+      {/* App Preferences Modal */}
+      {showPrefModal && (
+        <div className="preferences-modal-overlay" onClick={() => setShowPrefModal(false)}>
+          <div className="preferences-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="preferences-modal-header">
+              <span className="preferences-modal-title">{t("modal_title")}</span>
+              <button className="btn-close-modal" onClick={() => setShowPrefModal(false)}>&times;</button>
+            </div>
+            
+            <div className="preferences-modal-body">
+              {/* Modal left sidebar categories */}
+              <div className="preferences-modal-sidebar">
+                <button
+                  className={`preferences-menu-item ${prefCategory === "connection" ? "active" : ""}`}
+                  onClick={() => setPrefCategory("connection")}
+                >
+                  {t("modal_conn")}
+                </button>
+                <button
+                  className={`preferences-menu-item ${prefCategory === "networks" ? "active" : ""}`}
+                  onClick={() => setPrefCategory("networks")}
+                >
+                  {t("modal_networks")}
+                </button>
+                <button
+                  className={`preferences-menu-item ${prefCategory === "storage" ? "active" : ""}`}
+                  onClick={() => setPrefCategory("storage")}
+                >
+                  {t("modal_storage")}
+                </button>
+                <button
+                  className={`preferences-menu-item ${prefCategory === "theme" ? "active" : ""}`}
+                  onClick={() => setPrefCategory("theme")}
+                >
+                  {t("modal_theme")}
+                </button>
+                <button
+                  className={`preferences-menu-item ${prefCategory === "language" ? "active" : ""}`}
+                  onClick={() => setPrefCategory("language")}
+                >
+                  {t("modal_lang")}
+                </button>
+              </div>
+
+              {/* Modal right content display */}
+              <div className="preferences-modal-content">
+                {prefCategory === "connection" && (
+                  <div className="settings-group">
+                    <div className="settings-group-title">{t("modal_conn")}</div>
+                    <div className="form-row">
+                      <span className="form-label">{t("pref_libvirt_uri")}</span>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={libvirtUri}
+                        onChange={(e) => setLibvirtUri(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-row">
+                      <span className="form-label">{t("pref_autoconnect")}</span>
+                      <input
+                        type="checkbox"
+                        className="form-checkbox"
+                        checked={autoconnect}
+                        onChange={(e) => setAutoconnect(e.target.checked)}
+                      />
+                    </div>
+                    
+                    <div className="settings-group-title" style={{ marginTop: "2rem" }}>
+                      {t("pref_system_resources")}
+                    </div>
+                    <div className="preferences-info-text">
+                      <div>
+                        {lang === "zh" ? "OS 平台" : "OS Platform"}:{" "}
+                        <span className="system-resource-val">
+                          {systemResources?.os_platform || "Linux (x86_64)"}
+                        </span>
+                      </div>
+                      <div>
+                        {lang === "zh" ? "處理器" : "Processor"}:{" "}
+                        <span className="system-resource-val">
+                          {systemResources
+                            ? `${systemResources.cpu_cores} Core / ${systemResources.cpu_threads} Thread`
+                            : `${navigator.hardwareConcurrency || 8} Threads`}
+                        </span>
+                      </div>
+                      <div>
+                        {lang === "zh" ? "記憶體 (可用 / 總共)" : "Memory (Available / Total)"}:{" "}
+                        <span className="system-resource-val">
+                          {systemResources
+                            ? `${((systemResources.mem_available_kb) / 1024 / 1024).toFixed(2)} GB / ${((systemResources.mem_total_kb) / 1024 / 1024).toFixed(2)} GB`
+                            : "N/A"}
+                        </span>
+                      </div>
+                      <div>
+                        Tauri API Version: <span className="system-resource-val">2.x</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {prefCategory === "networks" && (
+                  <div className="settings-two-column">
+                    {/* Sub list of networks */}
+                    <div className="settings-sub-list">
+                      {networks.map((net) => (
+                        <div
+                          key={net.id}
+                          className={`settings-sub-item ${selectedNetworkId === net.id ? "active" : ""}`}
+                          onClick={() => setSelectedNetworkId(net.id)}
+                        >
+                          🌐 {net.name}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Details of selected network */}
+                    {(() => {
+                      const net = networks.find((n) => n.id === selectedNetworkId);
+                      if (!net) return null;
+                      return (
+                        <div className="settings-sub-details">
+                          <div className="settings-group">
+                            <div className="settings-group-title">{t("net_ipv4")}</div>
+                            <div className="form-row">
+                              <span className="form-label">{t("net_name")}</span>
+                              <input type="text" className="form-input" value={net.name} disabled />
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("net_device")}</span>
+                              <input type="text" className="form-input" value={net.device} disabled />
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("net_state")}</span>
+                              <span style={{ fontSize: "0.85rem", color: net.state === "active" ? "#10B981" : "#EF4444" }}>
+                                {net.state === "active" ? t("net_active") : t("net_inactive")}
+                              </span>
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("net_autostart")}</span>
+                              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", color: "#94A3B8" }}>
+                                <input type="checkbox" className="form-checkbox" checked={net.autostart} disabled />
+                                {t("net_on_boot")}
+                              </label>
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("net_subnet")}</span>
+                              <input type="text" className="form-input" value={net.subnet} disabled />
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("net_dhcp")}</span>
+                              <input type="text" className="form-input" value={`${net.dhcp_start} - ${net.dhcp_end}`} disabled />
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("net_forwarding")}</span>
+                              <input type="text" className="form-input" value={net.forwarding} disabled />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {prefCategory === "storage" && (
+                  <div className="settings-two-column">
+                    {/* Sub list of pools */}
+                    <div className="settings-sub-list">
+                      {storagePools.map((pool) => (
+                        <div
+                          key={pool.id}
+                          className={`settings-sub-item ${selectedStorageId === pool.id ? "active" : ""}`}
+                          onClick={() => setSelectedStorageId(pool.id)}
+                        >
+                          💾 {pool.name}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Details of selected pool */}
+                    {(() => {
+                      const pool = storagePools.find((p) => p.id === selectedStorageId);
+                      if (!pool) return null;
+                      return (
+                        <div className="settings-sub-details">
+                          <div className="settings-group">
+                            <div className="settings-group-title">Storage Pool Detail</div>
+                            <div className="form-row">
+                              <span className="form-label">{t("store_pool_name")}</span>
+                              <input type="text" className="form-input" value={pool.name} disabled />
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("store_pool_location")}</span>
+                              <input type="text" className="form-input" value={pool.location} disabled />
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("store_pool_size")}</span>
+                              <span className="form-value-text">
+                                {pool.used_gb} GB In Use / {pool.size_gb - pool.used_gb} GB Free
+                              </span>
+                            </div>
+                            <div className="form-row">
+                              <span className="form-label">{t("store_pool_autostart")}</span>
+                              <input type="checkbox" className="form-checkbox" checked={pool.autostart} disabled />
+                            </div>
+                          </div>
+
+                          <div className="settings-volumes-title">{t("store_volumes")}</div>
+                          <div className="settings-table-wrapper">
+                            <table className="settings-table">
+                              <thead>
+                                <tr>
+                                  <th>{t("store_volume_name")}</th>
+                                  <th>{t("store_volume_size")}</th>
+                                  <th>{t("store_volume_format")}</th>
+                                  <th>{t("store_volume_used_by")}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pool.volumes.map((vol) => (
+                                  <tr key={vol.name}>
+                                    <td>{vol.name}</td>
+                                    <td>{vol.size}</td>
+                                    <td>{vol.format}</td>
+                                    <td>{vol.used_by}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {prefCategory === "theme" && (
+                  <div className="settings-group">
+                    <div className="settings-group-title">{t("modal_theme")}</div>
+                    <div className="form-row">
+                      <span className="form-label">{t("modal_theme")}</span>
+                      <select
+                        className="form-select"
+                        value={theme}
+                        onChange={(e) => setTheme(e.target.value as "dark" | "light")}
+                      >
+                        <option value="dark">{t("pref_theme_dark")}</option>
+                        <option value="light">{t("pref_theme_light")}</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {prefCategory === "language" && (
+                  <div className="settings-group">
+                    <div className="settings-group-title">{t("modal_lang")}</div>
+                    <div className="form-row">
+                      <span className="form-label">{t("modal_lang")}</span>
+                      <select
+                        className="form-select"
+                        value={lang}
+                        onChange={(e) => setLang(e.target.value as "zh" | "en")}
+                      >
+                        <option value="zh">{t("pref_lang_zh")}</option>
+                        <option value="en">{t("pref_lang_en")}</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="preferences-modal-header" style={{ borderTop: "1px solid rgba(255, 255, 255, 0.05)", borderBottom: "none", justifyContent: "flex-end", padding: "1rem" }}>
+              <button className="btn-save-settings" style={{ margin: 0 }} onClick={() => setShowPrefModal(false)}>
+                {t("btn_close")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,7 +1,9 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::{Serialize, Deserialize};
 use virt::connect::Connect;
 use virt::domain::Domain;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -20,6 +22,370 @@ struct DomainItem {
     vcpu_count: u32,
     os_type: String,
     cpu_time: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct SystemResources {
+    cpu_cores: u32,
+    cpu_threads: u32,
+    mem_total_kb: u64,
+    mem_available_kb: u64,
+    os_platform: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct NetworkItem {
+    id: String,
+    name: String,
+    device: String,
+    state: String,
+    autostart: bool,
+    subnet: String,
+    dhcp_start: String,
+    dhcp_end: String,
+    forwarding: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct VolumeItem {
+    name: String,
+    size: String,
+    format: String,
+    used_by: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct StoragePoolItem {
+    id: String,
+    name: String,
+    pool_type: String,
+    size_gb: u64,
+    used_gb: u64,
+    location: String,
+    state: String,
+    autostart: bool,
+    volumes: Vec<VolumeItem>,
+}
+
+fn extract_xml_tag_attr(xml: &str, tag_prefix: &str, attr: &str) -> Option<String> {
+    if let Some(idx) = xml.find(tag_prefix) {
+        let tag_block = &xml[idx..];
+        let search_str = format!("{}='", attr);
+        if let Some(attr_idx) = tag_block.find(&search_str) {
+            let start = attr_idx + search_str.len();
+            if let Some(end_idx) = tag_block[start..].find("'") {
+                return Some(tag_block[start..start + end_idx].to_string());
+            }
+        }
+        let search_str_double = format!("{}=\"", attr);
+        if let Some(attr_idx) = tag_block.find(&search_str_double) {
+            let start = attr_idx + search_str_double.len();
+            if let Some(end_idx) = tag_block[start..].find("\"") {
+                return Some(tag_block[start..start + end_idx].to_string());
+            }
+        }
+    }
+    None
+}
+
+#[tauri::command]
+fn list_networks() -> Result<Vec<NetworkItem>, String> {
+    let conn = connect_libvirt()?;
+    let nets = conn.list_all_networks(0)
+        .map_err(|e| format!("Failed to list networks: {}", e))?;
+    
+    let mut list = Vec::new();
+    for net in nets {
+        let name = net.get_name().unwrap_or_else(|_| "unknown".to_string());
+        let device = net.get_bridge_name().unwrap_or_else(|_| "unknown".to_string());
+        let is_active = net.is_active().unwrap_or(false);
+        let autostart = net.get_autostart().unwrap_or(false);
+        
+        let state = if is_active { "active".to_string() } else { "inactive".to_string() };
+        
+        let xml = net.get_xml_desc(0).unwrap_or_default();
+        
+        let ip_addr = extract_xml_tag_attr(&xml, "<ip address='", "address")
+            .or_else(|| extract_xml_tag_attr(&xml, "<ip address=\"", "address"));
+            
+        let prefix = extract_xml_tag_attr(&xml, "prefix='", "prefix")
+            .or_else(|| extract_xml_tag_attr(&xml, "prefix=\"", "prefix"))
+            .unwrap_or_else(|| "24".to_string());
+            
+        let subnet = if let Some(ip) = ip_addr {
+            if let Some(last_dot) = ip.rfind('.') {
+                format!("{}.0/{}", &ip[..last_dot], prefix)
+            } else {
+                format!("{}/{}", ip, prefix)
+            }
+        } else {
+            "Disabled".to_string()
+        };
+        
+        let dhcp_start = extract_xml_tag_attr(&xml, "<range start='", "start")
+            .or_else(|| extract_xml_tag_attr(&xml, "<range start=\"", "start"));
+            
+        let dhcp_end = extract_xml_tag_attr(&xml, "end='", "end")
+            .or_else(|| extract_xml_tag_attr(&xml, "end=\"", "end"));
+            
+        let (start, end) = match (dhcp_start, dhcp_end) {
+            (Some(s), Some(e)) => (s, e),
+            _ => ("Disabled".to_string(), "Disabled".to_string()),
+        };
+        
+        let fwd_mode = extract_xml_tag_attr(&xml, "<forward mode='", "mode")
+            .or_else(|| extract_xml_tag_attr(&xml, "<forward mode=\"", "mode"))
+            .map(|m| m.to_uppercase())
+            .unwrap_or_else(|| "Isolated".to_string());
+            
+        list.push(NetworkItem {
+            id: name.clone(),
+            name,
+            device,
+            state,
+            autostart,
+            subnet,
+            dhcp_start: start,
+            dhcp_end: end,
+            forwarding: fwd_mode,
+        });
+    }
+    
+    Ok(list)
+}
+
+#[tauri::command]
+fn list_storage_pools() -> Result<Vec<StoragePoolItem>, String> {
+    let conn = connect_libvirt()?;
+    let pools = conn.list_all_storage_pools(0)
+        .map_err(|e| format!("Failed to list storage pools: {}", e))?;
+        
+    let mut vm_disks = Vec::new();
+    if let Ok(domains) = conn.list_all_domains(0) {
+        for dom in domains {
+            let vm_name = dom.get_name().unwrap_or_default();
+            if let Ok(xml) = dom.get_xml_desc(0) {
+                let mut start = 0;
+                while let Some(idx) = xml[start..].find("<source file='") {
+                    let abs_idx = start + idx;
+                    let tag_block = &xml[abs_idx..];
+                    if let Some(end_quote) = tag_block["<source file='".len()..].find("'") {
+                        let path = &tag_block["<source file='".len().."<source file='".len() + end_quote];
+                        vm_disks.push((path.to_string(), vm_name.clone()));
+                    }
+                    start = abs_idx + 1;
+                }
+                
+                start = 0;
+                while let Some(idx) = xml[start..].find("<source dev='") {
+                    let abs_idx = start + idx;
+                    let tag_block = &xml[abs_idx..];
+                    if let Some(end_quote) = tag_block["<source dev='".len()..].find("'") {
+                        let path = &tag_block["<source dev='".len().."<source dev='".len() + end_quote];
+                        vm_disks.push((path.to_string(), vm_name.clone()));
+                    }
+                    start = abs_idx + 1;
+                }
+            }
+        }
+    }
+    
+    let mut list = Vec::new();
+    for pool in pools {
+        let name = pool.get_name().unwrap_or_else(|_| "unknown".to_string());
+        let is_active = pool.is_active().unwrap_or(false);
+        let autostart = pool.get_autostart().unwrap_or(false);
+        let state = if is_active { "active".to_string() } else { "inactive".to_string() };
+        
+        let mut pool_type = "Filesystem Directory".to_string();
+        let mut location = "/var/lib/libvirt/images".to_string();
+        let xml = pool.get_xml_desc(0).unwrap_or_default();
+        
+        if let Some(t) = extract_xml_tag_attr(&xml, "<pool type='", "type") {
+            pool_type = t;
+        }
+        
+        if let Some(target_idx) = xml.find("<path>") {
+            let path_block = &xml[target_idx + 6..];
+            if let Some(end_idx) = path_block.find("</path>") {
+                location = path_block[..end_idx].to_string();
+            }
+        }
+        
+        let mut size_gb = 0;
+        let mut used_gb = 0;
+        
+        if is_active {
+            if let Ok(info) = pool.get_info() {
+                size_gb = info.capacity / 1024 / 1024 / 1024;
+                let free_gb = info.available / 1024 / 1024 / 1024;
+                used_gb = size_gb.saturating_sub(free_gb);
+            }
+        }
+        
+        let mut volumes = Vec::new();
+        if is_active {
+            if let Ok(vols) = pool.list_all_volumes(0) {
+                for vol in vols {
+                    let vol_name = vol.get_name().unwrap_or_else(|_| "unknown".to_string());
+                    let vol_path = vol.get_path().unwrap_or_default();
+                    
+                    let mut cap_str = "0 GiB".to_string();
+                    if let Ok(vol_info) = vol.get_info() {
+                        let cap_gb = vol_info.capacity as f64 / 1024.0 / 1024.0 / 1024.0;
+                        if cap_gb >= 1.0 {
+                            cap_str = format!("{:.2} GiB", cap_gb);
+                        } else {
+                            cap_str = format!("{:.2} MiB", vol_info.capacity as f64 / 1024.0 / 1024.0);
+                        }
+                    }
+                    
+                    let mut format = "raw".to_string();
+                    let vol_xml_res = vol.get_xml_desc(0);
+                    if let Ok(vol_xml) = vol_xml_res {
+                        if let Some(f) = extract_xml_tag_attr(&vol_xml, "<format type='", "type") {
+                            format = f;
+                        }
+                    }
+                    
+                    let mut used_by = "None".to_string();
+                    for (disk_path, vm_name) in &vm_disks {
+                        if disk_path == &vol_path || disk_path.ends_with(&format!("/{}", vol_name)) {
+                            used_by = vm_name.clone();
+                            break;
+                        }
+                    }
+                    
+                    volumes.push(VolumeItem {
+                        name: vol_name,
+                        size: cap_str,
+                        format,
+                        used_by,
+                    });
+                }
+            }
+        }
+        
+        list.push(StoragePoolItem {
+            id: name.clone(),
+            name,
+            pool_type,
+            size_gb,
+            used_gb,
+            location,
+            state,
+            autostart,
+            volumes,
+        });
+    }
+    
+    Ok(list)
+}
+
+fn parse_cpu_info() -> (u32, u32) {
+    let mut threads = 0;
+    
+    if let Ok(val) = std::thread::available_parallelism() {
+        threads = val.get() as u32;
+    }
+    
+    let physical_cores;
+    
+    if let Ok(file) = File::open("/proc/cpuinfo") {
+        let reader = BufReader::new(file);
+        let mut physical_ids = HashSet::new();
+        let mut cores_per_socket = 0;
+        let mut processor_count = 0;
+        
+        for line in reader.lines().map_while(Result::ok) {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() == 2 {
+                let key = parts[0].trim();
+                let val = parts[1].trim();
+                if key == "processor" {
+                    processor_count += 1;
+                } else if key == "physical id" {
+                    if let Ok(pid) = val.parse::<u32>() {
+                        physical_ids.insert(pid);
+                    }
+                } else if key == "cpu cores" {
+                    if let Ok(cores) = val.parse::<u32>() {
+                        cores_per_socket = cores;
+                    }
+                }
+            }
+        }
+        
+        if processor_count > 0 {
+            threads = processor_count;
+        }
+        
+        let socket_count = if physical_ids.is_empty() { 1 } else { physical_ids.len() as u32 };
+        if cores_per_socket > 0 {
+            physical_cores = cores_per_socket * socket_count;
+        } else {
+            physical_cores = (threads / 2).max(1);
+        }
+    } else {
+        physical_cores = (threads / 2).max(1);
+    }
+    
+    (physical_cores, threads)
+}
+
+fn parse_mem_info() -> (u64, u64) {
+    let mut total_kb = 0;
+    let mut available_kb = 0;
+    let mut free_kb = 0;
+    let mut buffers_kb = 0;
+    let mut cached_kb = 0;
+    
+    if let Ok(file) = File::open("/proc/meminfo") {
+        let reader = BufReader::new(file);
+        for line in reader.lines().map_while(Result::ok) {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() == 2 {
+                let key = parts[0].trim();
+                let val_str = parts[1].trim();
+                let val = val_str.split_whitespace().next()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(0);
+                    
+                if key == "MemTotal" {
+                    total_kb = val;
+                } else if key == "MemAvailable" {
+                    available_kb = val;
+                } else if key == "MemFree" {
+                    free_kb = val;
+                } else if key == "Buffers" {
+                    buffers_kb = val;
+                } else if key == "Cached" {
+                    cached_kb = val;
+                }
+            }
+        }
+    }
+    
+    if available_kb == 0 {
+        available_kb = free_kb + buffers_kb + cached_kb;
+    }
+    
+    (total_kb, available_kb)
+}
+
+#[tauri::command]
+fn get_system_resources() -> Result<SystemResources, String> {
+    let (cpu_cores, cpu_threads) = parse_cpu_info();
+    let (mem_total_kb, mem_available_kb) = parse_mem_info();
+    let os_platform = "Linux (x86_64)".to_string();
+    
+    Ok(SystemResources {
+        cpu_cores,
+        cpu_threads,
+        mem_total_kb,
+        mem_available_kb,
+        os_platform,
+    })
 }
 
 fn connect_libvirt() -> Result<Connect, String> {
@@ -313,7 +679,10 @@ pub fn run() {
             reboot_domain,
             reset_domain,
             open_viewer,
-            get_vm_spice_port
+            get_vm_spice_port,
+            get_system_resources,
+            list_networks,
+            list_storage_pools
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
