@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { NetworkItem, StoragePoolItem, SystemResources } from "../types";
 import { TranslationKey } from "../translations";
@@ -42,6 +42,12 @@ export const PreferencesModal = ({
   const [selectedNetworkId, setSelectedNetworkId] = useState("");
   const [selectedStorageId, setSelectedStorageId] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [volSearchQuery, setVolSearchQuery] = useState("");
+
+  useEffect(() => {
+    setVolSearchQuery("");
+  }, [selectedStorageId, showPrefModal]);
+
 
   // Create network form
   const [showCreateNet, setShowCreateNet] = useState(false);
@@ -202,7 +208,28 @@ export const PreferencesModal = ({
       <div className="preferences-modal" onClick={(e) => e.stopPropagation()}>
         <div className="preferences-modal-header">
           <span className="preferences-modal-title">{t("modal_title")}</span>
-          <button className="btn-close-modal" onClick={() => setShowPrefModal(false)}>&times;</button>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            <button
+              onClick={onRefresh}
+              title={lang === "zh" ? "立即重新整理" : "Refresh Now"}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#64748B",
+                fontSize: "1.1rem",
+                cursor: "pointer",
+                padding: "0.25rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "color 0.15s ease",
+              }}
+              className="btn-close-modal"
+            >
+              🔄
+            </button>
+            <button className="btn-close-modal" onClick={() => setShowPrefModal(false)} style={{ fontSize: "1.5rem" }}>&times;</button>
+          </div>
         </div>
 
         <div className="preferences-modal-body">
@@ -510,17 +537,26 @@ export const PreferencesModal = ({
                         </div>
                       </div>
 
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div className="settings-volumes-title">{t("store_volumes")}</div>
-                        {activeStorage.state === "active" && (
-                          <button
-                            className="btn-save-settings"
-                            style={{ margin: 0, fontSize: "0.75rem", padding: "0.25rem 0.75rem" }}
-                            onClick={() => setShowCreateVol(true)}
-                          >
-                            + {t("vol_create")}
-                          </button>
-                        )}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "1.25rem 0 0.5rem 0" }}>
+                        <div className="settings-volumes-title" style={{ margin: 0 }}>{t("store_volumes")}</div>
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <input
+                            type="text"
+                            placeholder={lang === "zh" ? "搜尋硬碟..." : "Search..."}
+                            value={volSearchQuery}
+                            onChange={(e) => setVolSearchQuery(e.target.value)}
+                            className="volume-search-input"
+                          />
+                          {activeStorage.state === "active" && (
+                            <button
+                              className="btn-save-settings"
+                              style={{ margin: 0, fontSize: "0.75rem", padding: "0.25rem 0.75rem" }}
+                              onClick={() => setShowCreateVol(true)}
+                            >
+                              + {t("vol_create")}
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {showCreateVol && (
@@ -564,23 +600,28 @@ export const PreferencesModal = ({
                             </tr>
                           </thead>
                           <tbody>
-                            {activeStorage.volumes.map((vol) => (
-                              <tr key={vol.name}>
-                                <td>{vol.name}</td>
-                                <td>{vol.size}</td>
-                                <td>{vol.format}</td>
-                                <td>{vol.used_by}</td>
-                                <td>
-                                  <button
-                                    style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "0.8rem" }}
-                                    onClick={() => handleDeleteVolume(vol.name)}
-                                    title={t("vol_delete")}
-                                  >
-                                    ✕
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                            {activeStorage.volumes
+                              .filter((vol) =>
+                                vol.name.toLowerCase().includes(volSearchQuery.toLowerCase()) ||
+                                vol.used_by.toLowerCase().includes(volSearchQuery.toLowerCase())
+                              )
+                              .map((vol) => (
+                                <tr key={vol.name}>
+                                  <td>{vol.name}</td>
+                                  <td>{vol.size}</td>
+                                  <td>{vol.format}</td>
+                                  <td>{vol.used_by}</td>
+                                  <td>
+                                    <button
+                                      style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "0.8rem" }}
+                                      onClick={() => handleDeleteVolume(vol.name)}
+                                      title={t("vol_delete")}
+                                    >
+                                      ✕
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
                           </tbody>
                         </table>
                       </div>

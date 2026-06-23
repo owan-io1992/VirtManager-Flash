@@ -48,11 +48,8 @@ pub fn list_networks() -> Result<Vec<NetworkItem>, String> {
             "Disabled".to_string()
         };
         
-        let dhcp_start = crate::extract_xml_tag_attr(&xml, "<range start='", "start")
-            .or_else(|| crate::extract_xml_tag_attr(&xml, "<range start=\"", "start"));
-            
-        let dhcp_end = crate::extract_xml_tag_attr(&xml, "end='", "end")
-            .or_else(|| crate::extract_xml_tag_attr(&xml, "end=\"", "end"));
+        let dhcp_start = crate::extract_xml_tag_attr(&xml, "<range", "start");
+        let dhcp_end = crate::extract_xml_tag_attr(&xml, "<range", "end");
             
         let (start, end) = match (dhcp_start, dhcp_end) {
             (Some(s), Some(e)) => (s, e),

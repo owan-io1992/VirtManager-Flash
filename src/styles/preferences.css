@@ -17,8 +17,10 @@
 }
 
 .preferences-modal {
-  width: 1100px;
-  height: 650px;
+  width: 95vw;
+  max-width: 1250px;
+  height: 90vh;
+  max-height: 850px;
   background: rgba(18, 24, 38, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
