@@ -649,9 +649,18 @@ function App() {
                     <VmSettingsTab
                       selectedVm={selectedVm}
                       networks={networks}
+                      systemResources={systemResources}
                       lang={lang}
                       t={t}
-                      onSaveSuccess={fetchDomains}
+                      onSaveSuccess={(newName?: string) => {
+                        // If the VM was renamed, follow the selection to the new name
+                        if (newName && newName !== selectedVm.name) {
+                          setSelectedVmNames((prev) =>
+                            prev.map((n) => (n === selectedVm.name ? newName : n))
+                          );
+                        }
+                        fetchDomains();
+                      }}
                     />
                   )}
                 </div>

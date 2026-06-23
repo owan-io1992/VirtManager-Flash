@@ -20,20 +20,49 @@
 
 .form-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1rem;
   gap: 1rem;
 }
 
+.form-label-group {
+  width: 180px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.5rem;
+}
+
 .form-label {
-  width: 140px;
   font-size: 0.85rem;
   color: #94A3B8;
-  flex-shrink: 0;
+}
+
+.form-hint {
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: #64748B;
+}
+
+.form-control {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  min-height: 2.1rem;
+}
+
+.form-control > .form-input,
+.form-control > .form-select {
+  width: 100%;
 }
 
 .light-theme .form-label {
   color: #475569;
+}
+
+.light-theme .form-hint {
+  color: #94A3B8;
 }
 
 .form-input {
@@ -228,10 +257,67 @@
 }
 
 .vm-settings-menu {
-  width: 180px;
+  width: 190px;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+/* VirtualBox-style icon + label navigation items */
+.vm-settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  color: #94A3B8;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vm-settings-nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #E2E8F0;
+}
+
+.vm-settings-nav-item.active {
+  background: rgba(36, 198, 220, 0.12);
+  border-left-color: #24C6DC;
+  color: #24C6DC;
+}
+
+.vm-settings-nav-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.vm-settings-nav-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.light-theme .vm-settings-nav-item {
+  color: #475569;
+}
+
+.light-theme .vm-settings-nav-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+  color: #0F172A;
+}
+
+.light-theme .vm-settings-nav-item.active {
+  background: rgba(0, 114, 255, 0.08);
+  border-left-color: #0072FF;
+  color: #0072FF;
 }
 
 .vm-settings-content {
@@ -242,6 +328,7 @@
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
+  min-height: 320px;
 }
 
 .light-theme .vm-settings-content {
@@ -249,9 +336,120 @@
   border-color: rgba(0, 0, 0, 0.05);
 }
 
-.btn-save-settings {
-  align-self: flex-start;
+/* Sub-tabs within a category (advanced mode) */
+.settings-subtabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.light-theme .settings-subtabs {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+.settings-subtab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748B;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: -1px;
+}
+
+.settings-subtab:hover {
+  color: #E2E8F0;
+}
+
+.settings-subtab.active {
+  color: #24C6DC;
+  border-bottom-color: #24C6DC;
+}
+
+.light-theme .settings-subtab.active {
+  color: #0072FF;
+  border-bottom-color: #0072FF;
+}
+
+/* Loading / error placeholder */
+.vm-settings-state {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.vm-settings-state.error {
+  color: #F87171;
+}
+
+/* Footer save bar */
+.vm-settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-top: auto;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.light-theme .vm-settings-footer {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.vm-settings-dirty {
+  font-size: 0.78rem;
+  color: #FBBF24;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.vm-settings-dirty.visible {
+  opacity: 1;
+}
+
+.vm-settings-footer-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.btn-reset-settings {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94A3B8;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-reset-settings:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #E2E8F0;
+}
+
+.btn-reset-settings:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.light-theme .btn-reset-settings {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #475569;
+}
+
+.btn-save-settings {
   background: linear-gradient(135deg, #24C6DC 0%, #0072FF 100%);
   color: #FFF;
   border: none;
@@ -261,9 +459,128 @@
   border-radius: 8px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(36, 198, 220, 0.2);
+  transition: all 0.15s ease;
 }
 
-.btn-save-settings:hover {
+.btn-save-settings:hover:not(:disabled) {
   box-shadow: 0 4px 16px rgba(36, 198, 220, 0.35);
   transform: translateY(-1px);
+}
+
+.btn-save-settings:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Scrollable form area so the footer stays pinned */
+.vm-settings-scroll {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+/* Device cards for list-style disks / network adapters */
+.device-card {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 1rem 1.1rem 0.4rem;
+  margin-bottom: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.light-theme .device-card {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.device-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #E2E8F0;
+  margin-bottom: 0.9rem;
+}
+
+.light-theme .device-card-title {
+  color: #0F172A;
+}
+
+.device-card-badge {
+  font-size: 0.68rem;
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #24C6DC;
+  background: rgba(36, 198, 220, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+}
+
+.light-theme .device-card-badge {
+  color: #0072FF;
+  background: rgba(0, 114, 255, 0.08);
+}
+
+.settings-empty {
+  color: #64748B;
+  font-size: 0.82rem;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+/* Banner shown when the VM is running and most fields are locked */
+.vm-status-banner {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #FBBF24;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1.25rem;
+}
+
+/* XML editing mode */
+.vm-settings-content.xml-mode {
+  margin-left: 0;
+}
+
+.xml-hint {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #FBBF24;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.xml-editor {
+  flex-grow: 1;
+  width: 100%;
+  min-height: 360px;
+  resize: vertical;
+  background: rgba(8, 11, 17, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #CBD5E1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  padding: 0.9rem;
+  outline: none;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.xml-editor:focus {
+  border-color: #24C6DC;
+}
+
+.light-theme .xml-editor {
+  background: #F8FAFC;
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #0F172A;
 }

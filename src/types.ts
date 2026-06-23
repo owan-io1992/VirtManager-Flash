@@ -9,6 +9,40 @@ export interface DomainItem {
   cpu_time: number;
 }
 
+export interface DiskInfo {
+  target_dev: string;
+  path: string;
+  capacity_gb: number;
+  bus: string;
+  device: string;
+}
+
+export interface NicInfo {
+  mac: string;
+  source: string;
+  source_type: string;
+  model: string;
+}
+
+export interface VmSettings {
+  name: string;
+  vcpu: number;
+  current_mem_kb: number;
+  max_mem_kb: number;
+  cpu_sockets: number;
+  cpu_cores: number;
+  cpu_threads: number;
+  os_label: string;
+  os_arch: string;
+  os_machine: string;
+  os_type: string;
+  boot_device: string;
+  graphics_type: string;
+  autostart: boolean;
+  disks: DiskInfo[];
+  nics: NicInfo[];
+}
+
 export interface Folder {
   id: string;
   name: string;
