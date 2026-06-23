@@ -92,10 +92,67 @@ export const VmSettingsTab = ({
   const [category, setCategory] = useState<Category>("general");
   const [systemSubtab, setSystemSubtab] = useState<SystemSubtab>("motherboard");
 
+  // Helper for memory units conversion
+  const kbToValueAndUnit = (kb: number): { value: number; unit: "MB" | "GB" | "TB" } => {
+    const mb = kb / 1024;
+    if (mb >= 1024 * 1024 && mb % (1024 * 1024) === 0) {
+      return { value: mb / (1024 * 1024), unit: "TB" };
+    } else if (mb >= 1024 && mb % 1024 === 0) {
+      return { value: mb / 1024, unit: "GB" };
+    }
+    return { value: Math.round(mb), unit: "MB" };
+  };
+
+  const valueToKb = (value: number, unit: "MB" | "GB" | "TB"): number => {
+    let mb = value;
+    if (unit === "GB") {
+      mb = value * 1024;
+    } else if (unit === "TB") {
+      mb = value * 1024 * 1024;
+    }
+    return mb * 1024; // MB -> KB
+  };
+
+  const handleMemoryUnitChange = (
+    currentVal: number,
+    fromUnit: "MB" | "GB" | "TB",
+    toUnit: "MB" | "GB" | "TB",
+    valSetter: (v: number) => void,
+    unitSetter: (u: "MB" | "GB" | "TB") => void
+  ) => {
+    let kb = 0;
+    if (fromUnit === "MB") kb = currentVal * 1024;
+    else if (fromUnit === "GB") kb = currentVal * 1024 * 1024;
+    else if (fromUnit === "TB") kb = currentVal * 1024 * 1024 * 1024;
+
+    let newVal = 0;
+    if (toUnit === "MB") newVal = kb / 1024;
+    else if (toUnit === "GB") newVal = kb / (1024 * 1024);
+    else if (toUnit === "TB") newVal = kb / (1024 * 1024 * 1024);
+
+    newVal = Math.round(newVal * 1000) / 1000;
+    valSetter(newVal);
+    unitSetter(toUnit);
+    setDirty(true);
+  };
+
+  const getMinMaxStep = (unit: "MB" | "GB" | "TB") => {
+    const totalMb = systemResources ? Math.round(systemResources.mem_total_kb / 1024) : 131072;
+    if (unit === "GB") {
+      return { min: 0.25, max: Math.round((totalMb / 1024) * 100) / 100, step: 0.25 };
+    }
+    if (unit === "TB") {
+      return { min: 0.001, max: Math.round((totalMb / (1024 * 1024)) * 1000) / 1000, step: 0.001 };
+    }
+    return { min: 256, max: totalMb, step: 256 };
+  };
+
   // Form state
   const [vmCpuCores, setVmCpuCores] = useState(2);
-  const [vmMemoryMb, setVmMemoryMb] = useState(4096);
-  const [vmMaxMemoryMb, setVmMaxMemoryMb] = useState(4096);
+  const [vmMemoryVal, setVmMemoryVal] = useState(4);
+  const [vmMemoryUnit, setVmMemoryUnit] = useState<"MB" | "GB" | "TB">("GB");
+  const [vmMaxMemoryVal, setVmMaxMemoryVal] = useState(4);
+  const [vmMaxMemoryUnit, setVmMaxMemoryUnit] = useState<"MB" | "GB" | "TB">("GB");
   const [topologyEnabled, setTopologyEnabled] = useState(false);
   const [vmSockets, setVmSockets] = useState(1);
   const [vmTopoCores, setVmTopoCores] = useState(2);
@@ -125,10 +182,13 @@ export const VmSettingsTab = ({
 
   // Push a fetched VmSettings payload into local editable state
   const applySettings = (s: VmSettings) => {
-    const curMemMb = Math.round(s.current_mem_kb / 1024) || 2048;
+    const memInfo = kbToValueAndUnit(s.current_mem_kb || 2048 * 1024);
+    const maxMemInfo = kbToValueAndUnit(s.max_mem_kb || s.current_mem_kb || 2048 * 1024);
     setVmCpuCores(s.vcpu || 1);
-    setVmMemoryMb(curMemMb);
-    setVmMaxMemoryMb(Math.round(s.max_mem_kb / 1024) || curMemMb);
+    setVmMemoryVal(memInfo.value);
+    setVmMemoryUnit(memInfo.unit);
+    setVmMaxMemoryVal(maxMemInfo.value);
+    setVmMaxMemoryUnit(maxMemInfo.unit);
 
     const hasTopology = s.cpu_sockets > 0 && s.cpu_cores > 0 && s.cpu_threads > 0;
     setTopologyEnabled(hasTopology);
@@ -199,6 +259,48 @@ export const VmSettingsTab = ({
     setDirty(true);
   };
 
+  const getNextTargetDev = () => {
+    const existing = new Set(disks.map((d) => d.target_dev));
+    for (let i = 0; i < 26; i++) {
+      const dev = "vd" + String.fromCharCode(97 + i);
+      if (!existing.has(dev)) return dev;
+    }
+    return "vda";
+  };
+
+  const getNextDiskPath = (nextDev: string) => {
+    if (disks.length > 0 && disks[0].path) {
+      const firstPath = disks[0].path;
+      const lastSlash = firstPath.lastIndexOf("/");
+      if (lastSlash !== -1) {
+        const dir = firstPath.substring(0, lastSlash);
+        const extIndex = firstPath.lastIndexOf(".");
+        const ext = extIndex !== -1 && extIndex > lastSlash ? firstPath.substring(extIndex) : ".qcow2";
+        return `${dir}/${selectedVm.name}-${nextDev}${ext}`;
+      }
+    }
+    return `/var/lib/libvirt/images/${selectedVm.name}-${nextDev}.qcow2`;
+  };
+
+  const addDisk = () => {
+    const nextDev = getNextTargetDev();
+    const nextPath = getNextDiskPath(nextDev);
+    const newDisk: DiskInfo = {
+      target_dev: nextDev,
+      path: nextPath,
+      capacity_gb: 20,
+      bus: "virtio",
+      device: "disk"
+    };
+    setDisks([...disks, newDisk]);
+    setDirty(true);
+  };
+
+  const removeDisk = (index: number) => {
+    setDisks(disks.filter((_, i) => i !== index));
+    setDirty(true);
+  };
+
   const updateNic = (index: number, patch: Partial<NicInfo>) => {
     setNics((prev) => prev.map((n, i) => (i === index ? { ...n, ...patch } : n)));
     setDirty(true);
@@ -243,8 +345,8 @@ export const VmSettingsTab = ({
         name: selectedVm.name,
         newName: vmName.trim(),
         cpu: vmCpuCores,
-        memory: vmMemoryMb * 1024, // MB -> KB
-        maxMemory: vmMaxMemoryMb * 1024,
+        memory: valueToKb(vmMemoryVal, vmMemoryUnit),
+        maxMemory: valueToKb(vmMaxMemoryVal, vmMaxMemoryUnit),
         autostart: vmAutostart,
         bootDevice: vmBootDevice,
         graphicsType: vmGraphicsType,
@@ -256,10 +358,12 @@ export const VmSettingsTab = ({
         disks,
         nics,
       });
-      alert(lang === "zh" ? "設定變更已成功套用至虛擬機！" : "VM settings saved successfully!");
+      const renamed = isStopped && vmName.trim() && vmName.trim() !== selectedVm.name;
+      if (!renamed) {
+        alert(lang === "zh" ? "設定變更已成功套用至虛擬機！" : "VM settings saved successfully!");
+      }
       setInitialDisks(disks);
       setDirty(false);
-      const renamed = isStopped && vmName.trim() && vmName.trim() !== selectedVm.name;
       if (onSaveSuccess) onSaveSuccess(renamed ? vmName.trim() : undefined);
     } catch (err: any) {
       console.error(err);
@@ -356,33 +460,74 @@ export const VmSettingsTab = ({
 
       {systemSubtab === "motherboard" && (
         <>
-          <Field label={`${t("vm_f_base_mem")} (MB)`} hint={t("vm_h_base_mem")}>
-            <input
-              type="number"
-              className="form-input"
-              value={vmMemoryMb}
-              min={256}
-              max={maxMemMb}
-              step={256}
-              disabled={!isStopped}
-              onChange={(e) => edit(setVmMemoryMb)(Number(e.target.value))}
-            />
+          <Field label={t("vm_f_base_mem")} hint={t("vm_h_base_mem")}>
+            <div style={{ display: "flex", gap: "8px", width: "240px" }}>
+              <input
+                type="number"
+                className="form-input"
+                style={{ flex: 1, height: "38px", boxSizing: "border-box" }}
+                value={vmMemoryVal}
+                min={getMinMaxStep(vmMemoryUnit).min}
+                max={getMinMaxStep(vmMemoryUnit).max}
+                step={getMinMaxStep(vmMemoryUnit).step}
+                disabled={!isStopped}
+                onChange={(e) => edit(setVmMemoryVal)(Number(e.target.value))}
+              />
+              <select
+                className="form-select"
+                style={{ width: "65px", height: "38px", boxSizing: "border-box", paddingTop: 0, paddingBottom: 0, paddingRight: "1.25rem", backgroundPosition: "right 0.35rem center" }}
+                value={vmMemoryUnit}
+                disabled={!isStopped}
+                onChange={(e) => handleMemoryUnitChange(
+                  vmMemoryVal,
+                  vmMemoryUnit,
+                  e.target.value as "MB" | "GB" | "TB",
+                  setVmMemoryVal,
+                  setVmMemoryUnit
+                )}
+              >
+                <option value="MB">MB</option>
+                <option value="GB">GB</option>
+                <option value="TB">TB</option>
+              </select>
+            </div>
           </Field>
-          <Field label={`${t("vm_settings_max_mem")} (MB)`} hint={t("vm_h_max_mem")}>
-            <input
-              type="number"
-              className="form-input"
-              value={vmMaxMemoryMb}
-              min={256}
-              max={maxMemMb}
-              step={256}
-              disabled={!isStopped}
-              onChange={(e) => edit(setVmMaxMemoryMb)(Number(e.target.value))}
-            />
+          <Field label={t("vm_settings_max_mem")} hint={t("vm_h_max_mem")}>
+            <div style={{ display: "flex", gap: "8px", width: "240px" }}>
+              <input
+                type="number"
+                className="form-input"
+                style={{ flex: 1, height: "38px", boxSizing: "border-box" }}
+                value={vmMaxMemoryVal}
+                min={getMinMaxStep(vmMaxMemoryUnit).min}
+                max={getMinMaxStep(vmMaxMemoryUnit).max}
+                step={getMinMaxStep(vmMaxMemoryUnit).step}
+                disabled={!isStopped}
+                onChange={(e) => edit(setVmMaxMemoryVal)(Number(e.target.value))}
+              />
+              <select
+                className="form-select"
+                style={{ width: "65px", height: "38px", boxSizing: "border-box", paddingTop: 0, paddingBottom: 0, paddingRight: "1.25rem", backgroundPosition: "right 0.35rem center" }}
+                value={vmMaxMemoryUnit}
+                disabled={!isStopped}
+                onChange={(e) => handleMemoryUnitChange(
+                  vmMaxMemoryVal,
+                  vmMaxMemoryUnit,
+                  e.target.value as "MB" | "GB" | "TB",
+                  setVmMaxMemoryVal,
+                  setVmMaxMemoryUnit
+                )}
+              >
+                <option value="MB">MB</option>
+                <option value="GB">GB</option>
+                <option value="TB">TB</option>
+              </select>
+            </div>
           </Field>
           <Field label={t("vm_settings_boot_device")}>
             <select
               className="form-select"
+              style={{ width: "240px", height: "38px", boxSizing: "border-box", paddingTop: 0, paddingBottom: 0 }}
               value={vmBootDevice}
               disabled={!isStopped}
               onChange={(e) => edit(setVmBootDevice)(e.target.value)}
@@ -482,12 +627,50 @@ export const VmSettingsTab = ({
         const orig = initialDisks.find((o) => o.target_dev === disk.target_dev);
         return (
           <div className="device-card" key={disk.target_dev || i}>
-            <div className="device-card-title">
-              {t("vm_disk")} {i + 1}
-              <span className="device-card-badge">
-                {disk.target_dev || "?"} · {disk.device || "disk"}
-              </span>
+            <div className="device-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                {t("vm_disk")} {i + 1}
+                <span className="device-card-badge" style={{ marginLeft: "8px" }}>
+                  {disk.target_dev || "?"} · {disk.device || "disk"}
+                </span>
+              </div>
+              {isStopped && (
+                <button
+                  type="button"
+                  className="btn-reset-settings"
+                  style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#EF4444" }}
+                  onClick={() => removeDisk(i)}
+                >
+                  {lang === "zh" ? "移除" : "Remove"}
+                </button>
+              )}
             </div>
+
+            {!orig && (
+              <>
+                <Field label={t("vm_f_target")}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={disk.target_dev}
+                    disabled={!isStopped}
+                    onChange={(e) => updateDisk(i, { target_dev: e.target.value })}
+                  />
+                </Field>
+                <Field label={t("vm_f_device_type")}>
+                  <select
+                    className="form-select"
+                    value={disk.device}
+                    disabled={!isStopped}
+                    onChange={(e) => updateDisk(i, { device: e.target.value })}
+                  >
+                    <option value="disk">disk</option>
+                    <option value="cdrom">cdrom</option>
+                  </select>
+                </Field>
+              </>
+            )}
+
             <Field label={t("vm_settings_disk_path")}>
               <input
                 type="text"
@@ -523,6 +706,17 @@ export const VmSettingsTab = ({
           </div>
         );
       })}
+
+      {isStopped && (
+        <button
+          type="button"
+          className="btn-reset-settings"
+          style={{ width: "100%", marginTop: "1rem", borderStyle: "dashed", borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC" }}
+          onClick={addDisk}
+        >
+          + {lang === "zh" ? "新增虛擬硬碟" : "Add Storage Disk"}
+        </button>
+      )}
     </div>
   );
 

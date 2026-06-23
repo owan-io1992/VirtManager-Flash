@@ -655,9 +655,9 @@ function App() {
                       onSaveSuccess={(newName?: string) => {
                         // If the VM was renamed, follow the selection to the new name
                         if (newName && newName !== selectedVm.name) {
-                          setSelectedVmNames((prev) =>
-                            prev.map((n) => (n === selectedVm.name ? newName : n))
-                          );
+                          const nextNames = selectedVmNames.map((n) => (n === selectedVm.name ? newName : n));
+                          prevSelectedRef.current = nextNames;
+                          setSelectedVmNames(nextNames);
                         }
                         fetchDomains();
                       }}

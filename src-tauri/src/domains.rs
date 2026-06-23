@@ -348,18 +348,56 @@ fn update_interfaces_xml(xml: &str, nics: &[NicInfo]) -> String {
     })
 }
 
-// Update the bus of each disk block, matching the incoming disk list by target dev
+// Update/Add/Remove disk blocks, matching the incoming disk list by target dev
 fn update_disks_xml(xml: &str, disks: &[DiskInfo]) -> String {
-    map_blocks(xml, "<disk", "</disk>", |block| {
+    // 1. Update existing disks or remove them if not in the new list
+    let updated_xml = map_blocks(xml, "<disk", "</disk>", |block| {
         let dev = match get_attr_in_block(block, "<target", "dev") {
             Some(d) => d,
             None => return block.to_string(),
         };
         match disks.iter().find(|d| d.target_dev == dev) {
-            Some(disk) => replace_attr_in_block(block, "<target", "bus", &disk.bus),
-            None => block.to_string(),
+            Some(disk) => {
+                let mut b = replace_attr_in_block(block, "<target", "bus", &disk.bus);
+                if b.contains("file=") {
+                    b = replace_attr_in_block(&b, "<source", "file", &disk.path);
+                } else if b.contains("dev=") {
+                    b = replace_attr_in_block(&b, "<source", "dev", &disk.path);
+                }
+                b
+            }
+            None => "".to_string(), // Return empty string to delete this disk block
         }
-    })
+    });
+
+    // 2. Add new disks that do not exist in the XML
+    let mut new_disks_xml = String::new();
+    for disk in disks {
+        let search_pattern = format!("dev='{}'", disk.target_dev);
+        let search_pattern_double = format!("dev=\"{}\"", disk.target_dev);
+        if !updated_xml.contains(&search_pattern) && !updated_xml.contains(&search_pattern_double) {
+            let disk_xml = format!(
+                "    <disk type='file' device='{}'>\n      <driver name='qemu' type='qcow2'/>\n      <source file='{}'/>\n      <target dev='{}' bus='{}'/>\n    </disk>\n",
+                if disk.device.is_empty() { "disk" } else { &disk.device },
+                disk.path,
+                disk.target_dev,
+                if disk.bus.is_empty() { "virtio" } else { &disk.bus }
+            );
+            new_disks_xml.push_str(&disk_xml);
+        }
+    }
+
+    if !new_disks_xml.is_empty() {
+        if let Some(devices_idx) = updated_xml.find("</devices>") {
+            let mut final_xml = String::new();
+            final_xml.push_str(&updated_xml[..devices_idx]);
+            final_xml.push_str(&new_disks_xml);
+            final_xml.push_str(&updated_xml[devices_idx..]);
+            return final_xml;
+        }
+    }
+
+    updated_xml
 }
 
 fn update_boot_xml(xml: &str, boot_dev: &str) -> String {
@@ -482,18 +520,35 @@ pub fn update_vm_settings(
 
     // --- VM is stopped: full edit allowed below ---
 
-    // Resize each backing volume that grew (shrinking is unsupported)
+    // Resize each backing volume that grew, and create new ones if they don't exist
     for disk in &disks {
         if disk.path.is_empty() {
             continue;
         }
-        if let Ok(vol) = StorageVol::lookup_by_path(&conn, &disk.path) {
-            if let Ok(vol_info) = vol.get_info() {
-                let new_size_bytes = disk.capacity_gb * 1024 * 1024 * 1024;
-                if new_size_bytes > vol_info.capacity {
-                    vol.resize(new_size_bytes, 0)
-                        .map_err(|e| format!("Failed to resize storage volume {}: {}", disk.path, e))?;
+        if std::path::Path::new(&disk.path).exists() {
+            if let Ok(vol) = StorageVol::lookup_by_path(&conn, &disk.path) {
+                if let Ok(vol_info) = vol.get_info() {
+                    let new_size_bytes = disk.capacity_gb * 1024 * 1024 * 1024;
+                    if new_size_bytes > vol_info.capacity {
+                        vol.resize(new_size_bytes, 0)
+                            .map_err(|e| format!("Failed to resize storage volume {}: {}", disk.path, e))?;
+                    }
                 }
+            }
+        } else {
+            // Create a new qcow2 image file using qemu-img
+            let size_str = format!("{}G", disk.capacity_gb);
+            let output = std::process::Command::new("qemu-img")
+                .arg("create")
+                .arg("-f")
+                .arg("qcow2")
+                .arg(&disk.path)
+                .arg(&size_str)
+                .output()
+                .map_err(|e| format!("Failed to run qemu-img: {}", e))?;
+            if !output.status.success() {
+                let err_msg = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("Failed to create disk image via qemu-img: {}", err_msg));
             }
         }
     }
