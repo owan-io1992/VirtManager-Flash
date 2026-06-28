@@ -13,6 +13,7 @@ import { VmStatusTab } from "./components/VmStatusTab";
 import { VmConsoleTab } from "./components/VmConsoleTab";
 import { VmBatchView } from "./components/VmBatchView";
 import { VmContextMenu } from "./components/VmContextMenu";
+import { CreateVmWizard } from "./components/CreateVmWizard";
 
 // Common types & translations
 import { DomainItem, Folder, NetworkItem, StoragePoolItem, SystemResources } from "./types";
@@ -77,6 +78,7 @@ function App() {
 
   const [networks, setNetworks] = useState<NetworkItem[]>([]);
   const [storagePools, setStoragePools] = useState<StoragePoolItem[]>([]);
+  const [showCreateVmWizard, setShowCreateVmWizard] = useState(false);
 
   // Sync state changes with localStorage
   useEffect(() => {
@@ -564,6 +566,7 @@ function App() {
           setShowResModal={setShowResModal}
           fetchDomains={fetchDomains}
           setIsCreatingFolder={setIsCreatingFolder}
+          onCreateVm={() => setShowCreateVmWizard(true)}
         />
 
         {/* Modularized VM Sidebar List */}
@@ -723,6 +726,15 @@ function App() {
         autoconnect={autoconnect}
         setAutoconnect={setAutoconnect}
         t={t}
+      />
+
+      {/* Create VM Wizard */}
+      <CreateVmWizard
+        show={showCreateVmWizard}
+        onClose={() => setShowCreateVmWizard(false)}
+        storagePools={storagePools}
+        t={t}
+        onCreated={() => fetchDomains()}
       />
 
       {/* App Resource Manager Modal */}

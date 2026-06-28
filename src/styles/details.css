@@ -106,6 +106,7 @@
   transform: translateY(-1px);
 }
 
+
 .btn-batch:disabled {
   background: rgba(255, 255, 255, 0.02) !important;
   border-color: rgba(255, 255, 255, 0.04) !important;

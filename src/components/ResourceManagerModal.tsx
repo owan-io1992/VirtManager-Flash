@@ -218,29 +218,28 @@ export const ResourceManagerModal = ({
   };
 
   return (
-    <div className="preferences-modal-overlay" onClick={() => setShowResModal(false)}>
-      <div className="preferences-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="preferences-modal-overlay">
+      <div className="preferences-modal">
         <div className="preferences-modal-header">
           <span className="preferences-modal-title">{t("modal_res_title")}</span>
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
             <button
               onClick={onRefresh}
               title={lang === "zh" ? "立即重新整理" : "Refresh Now"}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#64748B",
-                fontSize: "1.1rem",
-                cursor: "pointer",
-                padding: "0.25rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "color 0.15s ease",
-              }}
-              className="btn-close-modal"
+              className="btn-refresh"
             >
-              🔄
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
             </button>
             <button className="btn-close-modal" onClick={() => setShowResModal(false)} style={{ fontSize: "1.5rem" }}>&times;</button>
           </div>

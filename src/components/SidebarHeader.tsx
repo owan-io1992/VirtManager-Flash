@@ -15,6 +15,7 @@ interface SidebarHeaderProps {
   setShowResModal: (show: boolean) => void;
   fetchDomains: () => Promise<void>;
   setIsCreatingFolder: React.Dispatch<React.SetStateAction<boolean>>;
+  onCreateVm: () => void;
 }
 
 export const SidebarHeader = ({
@@ -31,6 +32,7 @@ export const SidebarHeader = ({
   setShowResModal,
   fetchDomains,
   setIsCreatingFolder,
+  onCreateVm,
 }: SidebarHeaderProps) => {
   return (
     <>
@@ -112,8 +114,14 @@ export const SidebarHeader = ({
 
       {/* List Controls */}
       <div className="list-controls">
-        <span className="list-title">{t("title_environments")}</span>
         <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+          <button
+            className="btn-create-vm-list"
+            onClick={onCreateVm}
+            title={t("btn_create_vm")}
+          >
+            + VM
+          </button>
           <button
             className="btn-add-folder-trigger"
             onClick={() => setIsCreatingFolder((prev) => !prev)}

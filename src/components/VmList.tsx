@@ -61,6 +61,8 @@ export const VmList = ({
   toggleFolderCollapse,
   handleContextMenu,
 }: VmListProps) => {
+  const [filterText, setFilterText] = useState("");
+
   // Drag and drop state
   const [draggedItem, setDraggedItem] = useState<{ type: "vm" | "folder"; id: string } | null>(null);
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
@@ -290,8 +292,34 @@ export const VmList = ({
     setLastSelectedName(name);
   };
 
+  const filter = filterText.trim().toLowerCase();
+  const matchesFilter = (name: string) => !filter || name.toLowerCase().includes(filter);
+
+  // When filtering: flatten everything and show only matched VMs (ignore folders)
+  const isFiltering = filter.length > 0;
+  const filteredDomains = isFiltering ? domains.filter((d) => matchesFilter(d.name)) : null;
+
   return (
     <>
+      {/* Filter input */}
+      <div className="vm-filter-row">
+        <div className="vm-filter-input-wrap">
+          <svg className="vm-filter-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            className="vm-filter-input"
+            type="text"
+            placeholder={lang === "zh" ? "搜尋 VM..." : "Filter VMs..."}
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+          {filterText && (
+            <button className="vm-filter-clear" onClick={() => setFilterText("")}>✕</button>
+          )}
+        </div>
+      </div>
+
       {isCreatingFolder && (
         <div className="folder-create-container">
           <input
@@ -316,7 +344,45 @@ export const VmList = ({
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDropOnContainer}
       >
-        {topLevelOrder.map((itemId) => {
+        {/* Filtered flat list */}
+        {isFiltering && filteredDomains!.map((vm) => {
+          const isSelected = selectedVmNames.includes(vm.name);
+          const stateInfo = getStateInfo(vm.state);
+          return (
+            <div
+              key={vm.name}
+              className={`vm-list-item ${isSelected ? "selected" : ""}`}
+              onClick={(e) => handleItemClick(e, vm.name)}
+              onContextMenu={(e) => handleContextMenu(e, vm.name)}
+            >
+              <div className="vm-item-checkbox-container" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  className="vm-item-checkbox"
+                  checked={isSelected}
+                  onChange={() => handleCheckboxChange(vm.name)}
+                />
+              </div>
+              <div className="vm-item-details">
+                <span className="vm-item-name">{vm.name}</span>
+                <span className="vm-item-type">
+                  {vm.os_type.toLowerCase().includes("hvm") ? "KVM VM" : "LXC Container"}
+                </span>
+              </div>
+              <div className="vm-item-status">
+                <span className={`status-dot-mini ${stateInfo.className}`}></span>
+              </div>
+            </div>
+          );
+        })}
+        {isFiltering && filteredDomains!.length === 0 && (
+          <div style={{ textAlign: "center", color: "#64748B", padding: "2rem 0", fontSize: "0.85rem" }}>
+            {lang === "zh" ? "找不到符合的 VM" : "No matching VMs"}
+          </div>
+        )}
+
+        {/* Normal ordered list (folders + top-level VMs) */}
+        {!isFiltering && topLevelOrder.map((itemId) => {
           if (itemId.startsWith("folder_")) {
             const folder = folders.find((f) => f.id === itemId);
             if (!folder) return null;
@@ -460,7 +526,7 @@ export const VmList = ({
           }
         })}
 
-        {domains.length === 0 && !loading && (
+        {!isFiltering && domains.length === 0 && !loading && (
           <div style={{ textAlign: "center", color: "#64748B", padding: "2rem 0", fontSize: "0.85rem" }}>
             {t("empty_vms")}
           </div>

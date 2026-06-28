@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use virt::domain::Domain;
+use virt::storage_pool::StoragePool;
 use virt::storage_vol::StorageVol;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -985,4 +986,116 @@ pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
         disks: parse_disks(&xml, &conn),
         nics: parse_nics(&xml),
     })
+}
+
+#[tauri::command]
+pub fn create_vm(
+    name: String,
+    vcpu: u32,
+    memory_mb: u64,
+    disk_size_gb: u64,
+    storage_pool_name: String,
+    iso_path: String,
+) -> Result<(), String> {
+    let conn = crate::connect_libvirt()?;
+
+    // Resolve pool path and create qcow2 disk image
+    let pool = StoragePool::lookup_by_name(&conn, &storage_pool_name)
+        .map_err(|e| format!("Storage pool '{}' not found: {}", storage_pool_name, e))?;
+
+    let pool_xml = pool.get_xml_desc(0).unwrap_or_default();
+    let pool_path = if let Some(idx) = pool_xml.find("<path>") {
+        let tail = &pool_xml[idx + 6..];
+        tail[..tail.find("</path>").unwrap_or(0)].to_string()
+    } else {
+        "/var/lib/libvirt/images".to_string()
+    };
+
+    let vol_name = format!("{}.qcow2", name);
+    let disk_path = format!("{}/{}", pool_path.trim_end_matches('/'), vol_name);
+    let size_bytes = disk_size_gb * 1024 * 1024 * 1024;
+
+    let vol_xml = format!(
+        "<volume>\n  <name>{}</name>\n  <capacity>{}</capacity>\n  <target>\n    <format type='qcow2'/>\n  </target>\n</volume>",
+        vol_name, size_bytes
+    );
+    StorageVol::create_xml(&pool, &vol_xml, 0)
+        .map_err(|e| format!("Failed to create disk volume: {}", e))?;
+
+    let memory_kb = memory_mb * 1024;
+    let cdrom_block = if iso_path.is_empty() {
+        "    <disk type='file' device='cdrom'>\n      <driver name='qemu' type='raw'/>\n      <target dev='sda' bus='sata'/>\n      <readonly/>\n    </disk>".to_string()
+    } else {
+        format!(
+            "    <disk type='file' device='cdrom'>\n      <driver name='qemu' type='raw'/>\n      <source file='{}'/>\n      <target dev='sda' bus='sata'/>\n      <readonly/>\n      <boot order='1'/>\n    </disk>",
+            iso_path
+        )
+    };
+
+    let domain_xml = format!(
+        r#"<domain type='kvm'>
+  <name>{name}</name>
+  <memory unit='KiB'>{memory_kb}</memory>
+  <currentMemory unit='KiB'>{memory_kb}</currentMemory>
+  <vcpu placement='static'>{vcpu}</vcpu>
+  <os>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <boot dev='cdrom'/>
+    <boot dev='hd'/>
+    <bootmenu enable='no'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
+  <cpu mode='host-passthrough' check='none' migratable='on'/>
+  <clock offset='utc'>
+    <timer name='rtc' tickpolicy='catchup'/>
+    <timer name='pit' tickpolicy='delay'/>
+    <timer name='hpet' present='no'/>
+  </clock>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='{disk_path}'/>
+      <target dev='vda' bus='virtio'/>
+      <boot order='2'/>
+    </disk>
+{cdrom_block}
+    <interface type='network'>
+      <source network='default'/>
+      <model type='virtio'/>
+    </interface>
+    <graphics type='spice' autoport='yes'>
+      <listen type='address'/>
+      <image compression='off'/>
+    </graphics>
+    <video>
+      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
+    </video>
+    <input type='tablet' bus='usb'/>
+    <input type='keyboard' bus='usb'/>
+    <channel type='spicevmc'>
+      <target type='virtio' name='com.redhat.spice.0'/>
+    </channel>
+    <memballoon model='virtio'/>
+    <rng model='virtio'>
+      <backend model='random'>/dev/urandom</backend>
+    </rng>
+  </devices>
+</domain>"#,
+        name = name,
+        memory_kb = memory_kb,
+        vcpu = vcpu,
+        disk_path = disk_path,
+        cdrom_block = cdrom_block,
+    );
+
+    Domain::define_xml(&conn, &domain_xml)
+        .map(|_| ())
+        .map_err(|e| format!("Failed to define VM: {}", e))
 }

@@ -26,8 +26,8 @@ export const PreferencesModal = ({
   if (!showPrefModal) return null;
 
   return (
-    <div className="preferences-modal-overlay" onClick={() => setShowPrefModal(false)}>
-      <div className="preferences-modal preferences-modal-small" onClick={(e) => e.stopPropagation()}>
+    <div className="preferences-modal-overlay">
+      <div className="preferences-modal preferences-modal-small">
         <div className="preferences-modal-header">
           <span className="preferences-modal-title">{t("modal_title")}</span>
           <button className="btn-close-modal" onClick={() => setShowPrefModal(false)} style={{ fontSize: "1.5rem" }}>&times;</button>

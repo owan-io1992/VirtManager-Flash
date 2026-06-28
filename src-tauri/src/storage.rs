@@ -3,6 +3,60 @@ use virt::storage_pool::StoragePool;
 use virt::storage_vol::StorageVol;
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct IsoFile {
+    pub path: String,
+    pub name: String,
+    pub pool_name: String,
+}
+
+#[tauri::command]
+pub fn list_iso_files() -> Result<Vec<IsoFile>, String> {
+    let conn = crate::connect_libvirt()?;
+    let pools = conn.list_all_storage_pools(0)
+        .map_err(|e| format!("Failed to list storage pools: {}", e))?;
+
+    let mut isos = Vec::new();
+    for pool in pools {
+        if !pool.is_active().unwrap_or(false) {
+            continue;
+        }
+        let pool_name = pool.get_name().unwrap_or_default();
+        if let Ok(vols) = pool.list_all_volumes(0) {
+            for vol in vols {
+                let vol_name = vol.get_name().unwrap_or_default();
+                if vol_name.to_lowercase().ends_with(".iso") {
+                    let path = vol.get_path().unwrap_or_default();
+                    isos.push(IsoFile {
+                        name: vol_name,
+                        path,
+                        pool_name: pool_name.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Also scan common non-pool ISO locations
+    let extra_dirs = ["/var/lib/libvirt/boot", "/home"];
+    for dir in &extra_dirs {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()).map(|e| e.to_lowercase() == "iso").unwrap_or(false) {
+                    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    let path_str = path.to_string_lossy().to_string();
+                    if !isos.iter().any(|i: &IsoFile| i.path == path_str) {
+                        isos.push(IsoFile { name, path: path_str, pool_name: String::new() });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(isos)
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct VolumeItem {
     pub name: String,
     pub size: String,
