@@ -240,15 +240,30 @@ DOM_scanmap[186]                = KeyNames.KEY_SemiColon;
 
 function get_scancode(code)
 {
-    if (common_scanmap[code] === undefined)
+    var keycode = code;
+    if (typeof code === 'object' && code !== null)
+    {
+        keycode = code.keyCode;
+        if (keycode === 0 || !keycode)
+        {
+            if (code.code === 'MetaLeft' || code.key === 'Meta')
+                keycode = 91;
+            else if (code.code === 'MetaRight')
+                keycode = 92;
+            else if (code.code === 'ContextMenu')
+                keycode = 93;
+        }
+    }
+
+    if (common_scanmap[keycode] === undefined)
     {
         if (navigator.userAgent.indexOf("Firefox") != -1)
-            return firefox_scanmap[code];
+            return firefox_scanmap[keycode];
         else
-            return DOM_scanmap[code];
+            return DOM_scanmap[keycode];
     }
     else
-        return common_scanmap[code];
+        return common_scanmap[keycode];
 }
 
 function keycode_to_start_scan(code)
@@ -256,7 +271,8 @@ function keycode_to_start_scan(code)
     var scancode = get_scancode(code);
     if (scancode === undefined)
     {
-        alert('no map for ' + code);
+        var raw_code = (typeof code === 'object' && code !== null) ? code.keyCode : code;
+        console.warn('no map for ' + raw_code);
         return 0;
     }
 

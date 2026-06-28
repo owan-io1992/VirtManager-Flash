@@ -1,6 +1,6 @@
 export const translations = {
   zh: {
-    brand_subtitle: "KVM & LXC 管理器",
+    brand_subtitle: "KVM 虛擬機管理器",
     conn_connected: "虛擬化連線已啟動",
     btn_start: "開機",
     btn_stop: "關機",
@@ -217,9 +217,9 @@ export const translations = {
     state_stopped: "已停止",
     state_offline: "離線",
     vm_type_kvm: "KVM 虛擬機",
-    vm_type_lxc: "LXC 容器",
+    vm_type_lxc: "容器",
     vm_type_kvm_full: "KVM 虛擬機",
-    vm_type_lxc_full: "LXC Linux 容器",
+    vm_type_lxc_full: "Linux 容器",
     filter_vms: "搜尋 VM...",
     no_match_vms: "找不到符合的 VM",
     delete_folder: "刪除資料夾",
@@ -265,10 +265,10 @@ export const translations = {
     err_batch_partial: "批次執行部分失敗：",
     err_batch_failed: "批次操作失敗：",
     select_env_title: "選擇一個環境",
-    select_env_desc: "從側欄選擇一個 KVM 虛擬機或 LXC 容器，以查看詳細資訊並執行操作。",
+    select_env_desc: "從側欄選擇一個 KVM 虛擬機，以查看詳細資訊並執行操作。",
   },
   en: {
-    brand_subtitle: "KVM & LXC Manager",
+    brand_subtitle: "KVM Virtual Machine Manager",
     conn_connected: "Hypervisor Connected",
     btn_start: "Start",
     btn_stop: "Shutdown",
@@ -485,9 +485,9 @@ export const translations = {
     state_stopped: "Stopped",
     state_offline: "Offline",
     vm_type_kvm: "KVM VM",
-    vm_type_lxc: "LXC Container",
+    vm_type_lxc: "Container",
     vm_type_kvm_full: "KVM Virtual Machine",
-    vm_type_lxc_full: "LXC Linux Container",
+    vm_type_lxc_full: "Linux Container",
     filter_vms: "Filter VMs...",
     no_match_vms: "No matching VMs",
     delete_folder: "Delete Folder",
@@ -533,7 +533,7 @@ export const translations = {
     err_batch_partial: "Batch execution completed with errors: ",
     err_batch_failed: "Batch action failed: ",
     select_env_title: "Select an Environment",
-    select_env_desc: "Choose a KVM virtual machine or LXC container from the sidebar to view details and control actions.",
+    select_env_desc: "Choose a KVM virtual machine from the sidebar to view details and control actions.",
   }
 };
 

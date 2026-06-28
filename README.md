@@ -4,7 +4,7 @@
   <img src="src/assets/LOGO.png" alt="VirtManager-Flash Logo" width="220" />
 </p>
 
-> A modern, lightweight, and blazing-fast desktop application designed to replace **virt-manager** for managing **KVM** and **LXC**, powered by the **Tauri** framework.
+> A modern, lightweight, and blazing-fast desktop application designed to replace **virt-manager** for managing **KVM**, powered by the **Tauri** framework.
 
 ---
 
@@ -16,7 +16,7 @@
 
 ## 🚀 Key Features
 
-- **Double Engine Support**: Seamlessly manage both **KVM** (Kernel-based Virtual Machines) and **LXC** (Linux Containers) side-by-side.
+- **KVM Native Management**: Seamlessly manage **KVM** (Kernel-based Virtual Machines) with a clean, fast interface.
 - **Modern User Experience**: A beautiful, fluid interface with dark mode, interactive monitoring charts, and micro-animations.
 - **Lightweight & Fast**: Extremely low resource footprint compared to Electron-based alternatives, thanks to Tauri and Rust.
 - **Remote & Local Connections**: Manage hypervisors locally or over secure SSH tunnels.
