@@ -11,6 +11,7 @@ import { VmList } from "./components/VmList";
 import { SidebarHeader } from "./components/SidebarHeader";
 import { VmStatusTab } from "./components/VmStatusTab";
 import { VmConsoleTab } from "./components/VmConsoleTab";
+import { VmSnapshotsTab } from "./components/VmSnapshotsTab";
 import { VmBatchView } from "./components/VmBatchView";
 import { VmContextMenu } from "./components/VmContextMenu";
 import { CreateVmWizard } from "./components/CreateVmWizard";
@@ -98,7 +99,7 @@ function App() {
   }, [topLevelOrder]);
 
   // Tabs & Console States
-  const [activeTab, setActiveTab] = useState<"status" | "console" | "settings">("status");
+  const [activeTab, setActiveTab] = useState<"status" | "console" | "settings" | "snapshots">("status");
   const [spicePort, setSpicePort] = useState<number | null>(null);
   const [spiceError, setSpiceError] = useState<string | null>(null);
   const [spiceLoading, setSpiceLoading] = useState(false);
@@ -651,6 +652,12 @@ function App() {
                 >
                   {t("tab_settings")}
                 </button>
+                <button
+                  className={`tab-item ${activeTab === "snapshots" ? "active" : ""}`}
+                  onClick={() => setActiveTab("snapshots")}
+                >
+                  {t("tab_snapshots")}
+                </button>
               </div>
             )}
 
@@ -690,7 +697,7 @@ function App() {
                       spicePort={spicePort}
                       t={t}
                     />
-                  ) : (
+                  ) : activeTab === "settings" ? (
                     // VM Settings Tab (Modular Component)
                     <VmSettingsTab
                       selectedVm={selectedVm}
@@ -708,6 +715,14 @@ function App() {
                         }
                         fetchDomains();
                       }}
+                    />
+                  ) : (
+                    // Snapshots Tab (Modular Component)
+                    <VmSnapshotsTab
+                      selectedVm={selectedVm}
+                      theme={theme}
+                      lang={lang}
+                      t={t}
                     />
                   )}
                 </div>

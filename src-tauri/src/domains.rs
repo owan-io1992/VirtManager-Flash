@@ -1246,3 +1246,117 @@ pub fn create_vm(
         .map(|_| ())
         .map_err(|e| format!("Failed to define VM: {}", e))
 }
+
+fn extract_xml_tag_content(xml: &str, tag: &str) -> Option<String> {
+    let start_tag = format!("<{}>", tag);
+    let end_tag = format!("</{}>", tag);
+    if let Some(start_idx) = xml.find(&start_tag) {
+        let content_start = start_idx + start_tag.len();
+        if let Some(end_idx) = xml[content_start..].find(&end_tag) {
+            return Some(xml[content_start..content_start + end_idx].to_string());
+        }
+    }
+    None
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SnapshotItem {
+    pub name: String,
+    pub description: String,
+    pub creation_time: i64,
+    pub state: String,
+    pub parent: Option<String>,
+    pub is_current: bool,
+}
+
+#[tauri::command]
+pub fn list_snapshots(name: String) -> Result<Vec<SnapshotItem>, String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &name)
+        .map_err(|e| format!("VM not found: {}", e))?;
+    
+    let snapshots = dom.list_all_snapshots(0)
+        .map_err(|e| format!("Failed to list snapshots: {}", e))?;
+    
+    let mut list = Vec::new();
+    for snap in snapshots {
+        let snap_name = snap.get_name().unwrap_or_else(|_| "unknown".to_string());
+        let xml = snap.get_xml_desc(0).unwrap_or_default();
+        
+        let description = extract_xml_tag_content(&xml, "description").unwrap_or_default();
+        let state = extract_xml_tag_content(&xml, "state").unwrap_or_else(|| "unknown".to_string());
+        let creation_time = extract_xml_tag_content(&xml, "creationTime")
+            .and_then(|t| t.parse::<i64>().ok())
+            .unwrap_or(0);
+        
+        let parent = extract_xml_tag_content(&xml, "parent")
+            .and_then(|p_xml| extract_xml_tag_content(&p_xml, "name"));
+            
+        let is_current = snap.is_current(0).unwrap_or(false);
+        
+        list.push(SnapshotItem {
+            name: snap_name,
+            description,
+            creation_time,
+            state,
+            parent,
+            is_current,
+        });
+    }
+    
+    // Sort by creation time descending (newest first)
+    list.sort_by(|a, b| b.creation_time.cmp(&a.creation_time));
+    
+    Ok(list)
+}
+
+#[tauri::command]
+pub fn create_snapshot(vm_name: String, snapshot_name: String, description: Option<String>) -> Result<(), String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &vm_name)
+        .map_err(|e| format!("VM not found: {}", e))?;
+        
+    let desc_xml = match description {
+        Some(d) if !d.trim().is_empty() => format!("<description>{}</description>", d),
+        _ => "".to_string(),
+    };
+    
+    let xml = format!(
+        r#"<domainsnapshot>
+  <name>{}</name>
+  {}
+</domainsnapshot>"#,
+        snapshot_name, desc_xml
+    );
+    
+    virt::domain_snapshot::DomainSnapshot::create_xml(&dom, &xml, 0)
+        .map(|_| ())
+        .map_err(|e| format!("Failed to create snapshot: {}", e))
+}
+
+#[tauri::command]
+pub fn revert_to_snapshot(vm_name: String, snapshot_name: String) -> Result<(), String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &vm_name)
+        .map_err(|e| format!("VM not found: {}", e))?;
+        
+    let snap = virt::domain_snapshot::DomainSnapshot::lookup_by_name(&dom, &snapshot_name, 0)
+        .map_err(|e| format!("Snapshot not found: {}", e))?;
+        
+    snap.revert(0)
+        .map_err(|e| format!("Failed to revert to snapshot: {}", e))
+}
+
+#[tauri::command]
+pub fn delete_snapshot(vm_name: String, snapshot_name: String) -> Result<(), String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &vm_name)
+        .map_err(|e| format!("VM not found: {}", e))?;
+        
+    let snap = virt::domain_snapshot::DomainSnapshot::lookup_by_name(&dom, &snapshot_name, 0)
+        .map_err(|e| format!("Snapshot not found: {}", e))?;
+        
+    snap.delete(0)
+        .map_err(|e| format!("Failed to delete snapshot: {}", e))
+}
+

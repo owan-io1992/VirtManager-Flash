@@ -89,3 +89,13 @@ export interface StoragePoolItem {
   autostart: boolean;
   volumes: VolumeItem[];
 }
+
+export interface SnapshotItem {
+  name: string;
+  description: string;
+  creation_time: number;
+  state: string;
+  parent: string | null;
+  is_current: boolean;
+}
+
