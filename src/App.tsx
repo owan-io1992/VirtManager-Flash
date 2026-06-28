@@ -155,44 +155,58 @@ function App() {
       const now = Date.now();
       const nextCpuUsage: { [name: string]: number } = {};
       
+      // Compute CPU usage synchronously (outside state updater) 
+      // so nextCpuUsage is populated before setCpuUsage reads it
+      const vmMetrics: { [name: string]: { cpuPercent: number; memPercent: number; memUsed: number; memMax: number } } = {};
+      list.forEach((vm) => {
+        let cpuPercent = 0;
+        let memPercent = 0;
+        let memUsed = 0;
+        let memMax = vm.max_mem;
+        
+        if (vm.state === 1) { // Running
+          const prev = prevCpuTimeRef.current[vm.name];
+          if (prev) {
+            const cpuDiff = vm.cpu_time - prev.cpuTime;
+            const timeDiff = now - prev.timestamp;
+            if (timeDiff > 0 && cpuDiff >= 0) {
+              // cpu_time is total ns across all vCPUs; wall time in ms * 1e6 → ns
+              // Dividing cpuDiff by (wallTime_ns * vcpus) would give per-vCPU avg,
+              // but guest OS reports total utilisation, so we skip the vcpus divisor.
+              const percentage = (cpuDiff / (timeDiff * 1000000)) * 100;
+              cpuPercent = Math.min(Math.max(percentage, 0), 100);
+            }
+          }
+          prevCpuTimeRef.current[vm.name] = { cpuTime: vm.cpu_time, timestamp: now };
+          
+          memUsed = vm.memory;
+          if (vm.max_mem > 0) {
+            memPercent = (vm.memory / vm.max_mem) * 100;
+          }
+        } else {
+          delete prevCpuTimeRef.current[vm.name];
+        }
+        
+        nextCpuUsage[vm.name] = cpuPercent;
+        vmMetrics[vm.name] = { cpuPercent, memPercent, memUsed, memMax };
+      });
+
       setMetricsHistory((prevHistory) => {
         const nextHistory = { ...prevHistory };
         
         list.forEach((vm) => {
-          let cpuPercent = 0;
-          let memPercent = 0;
-          let memUsed = 0;
-          let memMax = vm.max_mem;
-          
-          if (vm.state === 1) { // Running
-            const prev = prevCpuTimeRef.current[vm.name];
-            if (prev) {
-              const cpuDiff = vm.cpu_time - prev.cpuTime;
-              const timeDiff = now - prev.timestamp;
-              if (timeDiff > 0 && cpuDiff >= 0) {
-                const vcpus = vm.vcpu_count || 1;
-                const percentage = (cpuDiff / (timeDiff * 1000000 * vcpus)) * 100;
-                cpuPercent = Math.min(Math.max(percentage, 0), 100);
-              }
-            }
-            prevCpuTimeRef.current[vm.name] = { cpuTime: vm.cpu_time, timestamp: now };
-            
-            memUsed = vm.memory;
-            if (vm.max_mem > 0) {
-              memPercent = (vm.memory / vm.max_mem) * 100;
-            }
-          } else {
-            delete prevCpuTimeRef.current[vm.name];
+          if (vm.state !== 1) {
+            // VM is not running — clear history so chart starts fresh on next boot
+            delete nextHistory[vm.name];
+            return;
           }
-          
-          nextCpuUsage[vm.name] = cpuPercent;
-          
+          const m = vmMetrics[vm.name];
           const vmHist = nextHistory[vm.name] || [];
           const updated = [...vmHist, { 
-            cpu: cpuPercent, 
-            memoryPercent: memPercent, 
-            memoryUsedKb: memUsed, 
-            memoryMaxKb: memMax, 
+            cpu: m.cpuPercent, 
+            memoryPercent: m.memPercent, 
+            memoryUsedKb: m.memUsed, 
+            memoryMaxKb: m.memMax, 
             timestamp: now 
           }];
           if (updated.length > 300) {
@@ -652,6 +666,7 @@ function App() {
                     <VmSettingsTab
                       selectedVm={selectedVm}
                       networks={networks}
+                      storagePools={storagePools}
                       systemResources={systemResources}
                       lang={lang}
                       t={t}

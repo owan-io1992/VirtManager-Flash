@@ -11,6 +11,8 @@ interface MiniLineChartProps {
   lang?: "zh" | "en";
 }
 
+const WINDOW_MS = 10 * 60 * 1000; // 10 minutes in ms
+
 export const MiniLineChart = ({
   data,
   timestamps,
@@ -28,27 +30,43 @@ export const MiniLineChart = ({
   const paddingRight = 15;
   const paddingTop = 15;
   const paddingBottom = 25;
-  
-  // Fill data to at least 2 points if empty
-  const points = data.length > 1 ? data : (data.length === 1 ? [data[0], data[0]] : [0, 0]);
-  const times = timestamps.length > 1 ? timestamps : (timestamps.length === 1 ? [timestamps[0], timestamps[0]] : [Date.now(), Date.now()]);
-  
+
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
-  
-  const coords = points.map((val, idx) => {
-    const x = paddingLeft + (idx / (points.length - 1)) * chartWidth;
-    const y = paddingTop + chartHeight - (val / 100) * chartHeight;
-    return { x, y };
-  });
-  
+
+  // Fixed 10-minute window: [windowStart, windowEnd]
+  const now = timestamps.length > 0 ? timestamps[timestamps.length - 1] : Date.now();
+  const windowEnd = now;
+  const windowStart = windowEnd - WINDOW_MS;
+
+  // Filter data points within the 10-minute window
+  const visibleIndices: number[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    if (timestamps[i] >= windowStart && timestamps[i] <= windowEnd) {
+      visibleIndices.push(i);
+    }
+  }
+
+  // Map timestamp to X position within the fixed window
+  const tsToX = (ts: number) => {
+    const pct = (ts - windowStart) / WINDOW_MS;
+    return paddingLeft + pct * chartWidth;
+  };
+
+  // Build coordinates for visible points
+  const coords = visibleIndices.map((i) => ({
+    x: tsToX(timestamps[i]),
+    y: paddingTop + chartHeight - (data[i] / 100) * chartHeight,
+    dataIdx: i,
+  }));
+
   // Line path
   const pathD = coords.reduce((acc, coord, idx) => {
     return acc + `${idx === 0 ? "M" : "L"} ${coord.x.toFixed(1)} ${coord.y.toFixed(1)}`;
   }, "");
-  
+
   // Area path (closed at the bottom)
-  const areaD = coords.length > 0 
+  const areaD = coords.length > 0
     ? `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${(height - paddingBottom).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(height - paddingBottom).toFixed(1)} Z`
     : "";
 
@@ -59,41 +77,56 @@ export const MiniLineChart = ({
     return `${mins}:${secs}`;
   };
 
-  const startTime = formatTime(times[0]);
-  const midTime = formatTime(times[Math.floor(times.length / 2)]);
-  const endTime = formatTime(times[times.length - 1]);
+  // Generate 5 evenly-spaced X-axis labels across the 10-minute window
+  const xAxisLabels: { label: string; pct: number }[] = [];
+  const labelCount = 5;
+  for (let i = 0; i < labelCount; i++) {
+    const ts = windowStart + (i / (labelCount - 1)) * WINDOW_MS;
+    xAxisLabels.push({
+      label: formatTime(ts),
+      pct: (i / (labelCount - 1)) * 100,
+    });
+  }
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (points.length === 0) return;
+    if (coords.length === 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const svgX = (mouseX / rect.width) * width;
-    
-    const pct = (svgX - paddingLeft) / chartWidth;
-    const rawIdx = pct * (points.length - 1);
-    const idx = Math.min(Math.max(Math.round(rawIdx), 0), points.length - 1);
-    setHoveredIdx(idx);
+
+    // Find closest visible point
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    coords.forEach((c, i) => {
+      const dist = Math.abs(c.x - svgX);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestIdx = i;
+      }
+    });
+    setHoveredIdx(closestIdx);
   };
 
   const handleMouseLeave = () => {
     setHoveredIdx(null);
   };
 
-  const getHoveredValueString = (idx: number) => {
-    if (hoverLabels && hoverLabels[idx] !== undefined) {
-      return hoverLabels[idx];
+  const getHoveredValueString = (coordIdx: number) => {
+    const dataIdx = coords[coordIdx].dataIdx;
+    if (hoverLabels && hoverLabels[dataIdx] !== undefined) {
+      return hoverLabels[dataIdx];
     }
-    return `${points[idx].toFixed(1)}%`;
+    return `${data[dataIdx].toFixed(1)}%`;
   };
 
-  const displayVal = hoveredIdx !== null 
-    ? `${getHoveredValueString(hoveredIdx)} (@ ${formatTime(times[hoveredIdx])})`
+  const displayVal = hoveredIdx !== null
+    ? `${getHoveredValueString(hoveredIdx)} (@ ${formatTime(timestamps[coords[hoveredIdx].dataIdx])})`
     : currentValue;
 
   return (
     <div className="line-chart-card">
       <div className="chart-info">
-        <span className="chart-label">{label} ({lang === "zh" || !lang ? "10分歷史紀錄" : "10m History"})</span>
+        <span className="chart-label">{label} ({lang === "zh" || !lang ? "10\u5206\u6b77\u53f2\u7d00\u9304" : "10m History"})</span>
         <span className="chart-current-value">{displayVal}</span>
       </div>
       <div className="svg-wrapper">
@@ -170,11 +203,21 @@ export const MiniLineChart = ({
           )}
         </svg>
 
-        {/* HTML X-axis labels */}
-        <div className="chart-x-axis">
-          <span className="chart-axis-text">{startTime}</span>
-          <span className="chart-axis-text">{midTime}</span>
-          <span className="chart-axis-text">{endTime}</span>
+        {/* HTML X-axis labels — fixed 10-minute markers */}
+        <div className="chart-x-axis" style={{ position: "relative" }}>
+          {xAxisLabels.map((lbl, i) => (
+            <span
+              key={i}
+              className="chart-axis-text"
+              style={{
+                position: "absolute",
+                left: `${lbl.pct}%`,
+                transform: "translateX(-50%)",
+              }}
+            >
+              {lbl.label}
+            </span>
+          ))}
         </div>
 
         {/* HTML Hover Tooltip */}
@@ -187,8 +230,8 @@ export const MiniLineChart = ({
               transform: coords[hoveredIdx].x > width / 2 ? "translate(-110%, -50%)" : "translate(10px, -50%)"
             }}
           >
-            <div className="tooltip-row time">{lang === "zh" || !lang ? "時間" : "Time"}: {formatTime(times[hoveredIdx])}</div>
-            <div className="tooltip-row value" style={{ color }}>{lang === "zh" || !lang ? "用量" : "Usage"}: {getHoveredValueString(hoveredIdx)}</div>
+            <div className="tooltip-row time">{lang === "zh" || !lang ? "\u6642\u9593" : "Time"}: {formatTime(timestamps[coords[hoveredIdx].dataIdx])}</div>
+            <div className="tooltip-row value" style={{ color }}>{lang === "zh" || !lang ? "\u7528\u91cf" : "Usage"}: {getHoveredValueString(hoveredIdx)}</div>
           </div>
         )}
       </div>

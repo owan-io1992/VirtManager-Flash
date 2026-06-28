@@ -1,11 +1,12 @@
 import { useState, useEffect, ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { DomainItem, NetworkItem, SystemResources, VmSettings, DiskInfo, NicInfo } from "../types";
+import { DomainItem, NetworkItem, SystemResources, VmSettings, DiskInfo, NicInfo, StoragePoolItem } from "../types";
 import { TranslationKey } from "../translations";
 
 interface VmSettingsTabProps {
   selectedVm: DomainItem;
   networks: NetworkItem[];
+  storagePools: StoragePoolItem[];
   systemResources: SystemResources | null;
   lang: "zh" | "en";
   t: (key: TranslationKey) => string;
@@ -83,6 +84,7 @@ const Field = ({ label, hint, children }: { label: string; hint?: string; childr
 export const VmSettingsTab = ({
   selectedVm,
   networks,
+  storagePools,
   systemResources,
   lang,
   t,
@@ -574,7 +576,7 @@ export const VmSettingsTab = ({
               <option value="network">{t("boot_device_network")}</option>
               {disks.map((d, index) => (
                 <option key={d.target_dev} value={`disk:${d.target_dev}`}>
-                  {lang === "zh" ? `磁碟 ${index + 1} (${d.target_dev})` : `Disk ${index + 1} (${d.target_dev})`}
+                  {lang === "zh" ? `儲存磁碟區 ${index + 1} (${d.target_dev})` : `Volume ${index + 1} (${d.target_dev})`}
                 </option>
               ))}
               {nics.map((n, index) => (
@@ -677,7 +679,6 @@ export const VmSettingsTab = ({
 
   const renderStorage = () => (
     <div className="settings-group">
-      <div className="settings-group-title">{t("vm_settings_storage")}</div>
       {disks.length === 0 && <div className="settings-empty">{t("vm_disk_empty")}</div>}
       {disks.map((disk, i) => {
         const orig = initialDisks.find((o) => o.target_dev === disk.target_dev);
@@ -727,15 +728,85 @@ export const VmSettingsTab = ({
               </>
             )}
 
-            <Field label={t("vm_settings_disk_path")}>
-              <input
-                type="text"
-                className="form-input"
-                value={disk.path}
-                disabled={!isStopped}
-                onChange={(e) => updateDisk(i, { path: e.target.value })}
-              />
-            </Field>
+            {(() => {
+              const activePool = storagePools.find(p => disk.path.startsWith(p.location)) || storagePools[0] || { name: "", location: "/var/lib/libvirt/images", volumes: [] };
+              const filename = disk.path.startsWith(activePool.location)
+                ? disk.path.substring(activePool.location.length).replace(/^\//, "")
+                : disk.path.substring(disk.path.lastIndexOf("/") + 1);
+              const isExistingVol = activePool.volumes.some(v => v.name === filename);
+              return (
+                <>
+                  <Field label={lang === "zh" ? "儲存池 (Storage Pool)" : "Storage Pool"}>
+                    <select
+                      className="form-select"
+                      disabled={!isStopped}
+                      value={activePool.name}
+                      onChange={(e) => {
+                        const newPool = storagePools.find(p => p.name === e.target.value);
+                        if (newPool) {
+                          const newPath = newPool.location + "/" + (filename || `${selectedVm.name}-data-${i}.qcow2`);
+                          updateDisk(i, { path: newPath });
+                        }
+                      }}
+                    >
+                      {storagePools.map(p => (
+                        <option key={p.id} value={p.name}>
+                          {p.name} ({p.location})
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <Field label={lang === "zh" ? "儲存磁碟區 (Storage Volume)" : "Storage Volume"}>
+                    <select
+                      className="form-select"
+                      disabled={!isStopped}
+                      value={isExistingVol ? filename : "__custom__"}
+                      onChange={(e) => {
+                        if (e.target.value === "__custom__") {
+                          // Keep filename as-is, let user type it
+                        } else {
+                          const newPath = activePool.location + "/" + e.target.value;
+                          const selectedVolObj = activePool.volumes.find(v => v.name === e.target.value);
+                          if (selectedVolObj) {
+                            const matched = selectedVolObj.size.match(/(\d+)/);
+                            const sizeGb = matched ? Number(matched[1]) : disk.capacity_gb;
+                            updateDisk(i, { path: newPath, capacity_gb: sizeGb });
+                          } else {
+                            updateDisk(i, { path: newPath });
+                          }
+                        }
+                      }}
+                    >
+                      {activePool.volumes.map(v => (
+                        <option key={v.name} value={v.name}>
+                          {v.name} ({v.size})
+                        </option>
+                      ))}
+                      <option value="__custom__">
+                        {lang === "zh" ? "< 自訂 / 新增磁碟區 >" : "< Custom / New Volume >"}
+                      </option>
+                    </select>
+                  </Field>
+
+                  {(!isExistingVol || filename === "" || disk.path === "") && (
+                    <Field label={lang === "zh" ? "自訂檔案名稱" : "Custom Filename"}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={filename}
+                        disabled={!isStopped}
+                        placeholder="e.g. volume-name.qcow2"
+                        onChange={(e) => {
+                          const newPath = activePool.location + "/" + e.target.value;
+                          updateDisk(i, { path: newPath });
+                        }}
+                      />
+                    </Field>
+                  )}
+                </>
+              );
+            })()}
             <Field label={`${t("vm_settings_disk_size")} (GB)`} hint={t("vm_h_disk_size")}>
               <input
                 type="number"
@@ -763,34 +834,11 @@ export const VmSettingsTab = ({
         );
       })}
 
-      {isStopped && (
-        <button
-          type="button"
-          className="btn-reset-settings"
-          style={{ width: "100%", marginTop: "1rem", borderStyle: "dashed", borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC" }}
-          onClick={addDisk}
-        >
-          + {lang === "zh" ? "新增虛擬硬碟" : "Add Storage Disk"}
-        </button>
-      )}
     </div>
   );
 
   const renderNetwork = () => (
     <div className="settings-group">
-      <div className="settings-group-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>{t("vm_settings_network")}</span>
-        {isStopped && (
-          <button
-            type="button"
-            className="btn-reset-settings"
-            style={{ padding: "0.2rem 0.6rem", fontSize: "0.75rem", borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC" }}
-            onClick={addNic}
-          >
-            + {lang === "zh" ? "新增網路介面" : "Add Interface"}
-          </button>
-        )}
-      </div>
       {nics.length === 0 && <div className="settings-empty">{t("vm_nic_empty")}</div>}
       {nics.map((nic, i) => (
         <div className="device-card" key={nic.mac || i}>
@@ -908,6 +956,7 @@ export const VmSettingsTab = ({
           </Field>
         </div>
       ))}
+
     </div>
   );
 
@@ -989,6 +1038,26 @@ export const VmSettingsTab = ({
                 </div>
               )}
               <div className="vm-settings-footer-actions">
+                {isStopped && category === "storage" && (
+                  <button
+                    type="button"
+                    className="btn-reset-settings"
+                    style={{ borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC", marginRight: "0.25rem" }}
+                    onClick={addDisk}
+                  >
+                    + {lang === "zh" ? "新增磁碟區" : "Add Volume"}
+                  </button>
+                )}
+                {isStopped && category === "network" && (
+                  <button
+                    type="button"
+                    className="btn-reset-settings"
+                    style={{ borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC", marginRight: "0.25rem" }}
+                    onClick={addNic}
+                  >
+                    + {lang === "zh" ? "新增網路介面" : "Add Interface"}
+                  </button>
+                )}
                 <button
                   className="btn-reset-settings"
                   onClick={reload}

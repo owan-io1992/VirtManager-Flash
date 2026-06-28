@@ -71,40 +71,39 @@ export const VmStatusTab = ({
         </div>
       </div>
 
-      {/* Real-Time Metrics */}
-      <div className="metrics-section">
-        <div className="metric-card">
-          <MiniLineChart 
-            data={(metricsHistory[selectedVm.name] || []).map(p => p.cpu)}
-            timestamps={(metricsHistory[selectedVm.name] || []).map(p => p.timestamp)}
-            color={theme === "dark" ? "#24C6DC" : "#0891B2"}
-            gradientId="cpuHistoryGrad"
-            label="CPU"
-            currentValue={selectedVm.state === 1 ? `${(cpuUsage[selectedVm.name] || 0).toFixed(1)}%` : "0.0%"}
-            lang={lang}
-          />
-        </div>
+      {/* Real-Time Metrics — only shown when VM is running */}
+      {selectedVm.state === 1 && (
+        <div className="metrics-section">
+          <div className="metric-card">
+            <MiniLineChart 
+              data={(metricsHistory[selectedVm.name] || []).map(p => p.cpu)}
+              timestamps={(metricsHistory[selectedVm.name] || []).map(p => p.timestamp)}
+              color={theme === "dark" ? "#24C6DC" : "#0891B2"}
+              gradientId="cpuHistoryGrad"
+              label="CPU"
+              currentValue={`${(cpuUsage[selectedVm.name] || 0).toFixed(1)}%`}
+              lang={lang}
+            />
+          </div>
 
-        <div className="metric-card">
-          <MiniLineChart 
-            data={(metricsHistory[selectedVm.name] || []).map(p => p.memoryPercent)}
-            timestamps={(metricsHistory[selectedVm.name] || []).map(p => p.timestamp)}
-            hoverLabels={(metricsHistory[selectedVm.name] || []).map(p => 
-              selectedVm.state === 1 && p.memoryUsedKb > 0
-                ? `${formatMemory(p.memoryUsedKb)} / ${formatMemory(p.memoryMaxKb)} (${p.memoryPercent.toFixed(1)}%)`
-                : `0 MB / ${formatMemory(p.memoryMaxKb)} (0.0%)`
-            )}
-            color={theme === "dark" ? "#A855F7" : "#C084FC"}
-            gradientId="memHistoryGrad"
-            label="Memory"
-            currentValue={selectedVm.state === 1 
-              ? `${formatMemory(selectedVm.memory)} / ${formatMemory(selectedVm.max_mem)} (${selectedVm.max_mem > 0 ? ((selectedVm.memory / selectedVm.max_mem) * 100).toFixed(1) : "0.0"}%)`
-              : `0 MB / ${formatMemory(selectedVm.max_mem)} (0.0%)`
-            }
-            lang={lang}
-          />
+          <div className="metric-card">
+            <MiniLineChart 
+              data={(metricsHistory[selectedVm.name] || []).map(p => p.memoryPercent)}
+              timestamps={(metricsHistory[selectedVm.name] || []).map(p => p.timestamp)}
+              hoverLabels={(metricsHistory[selectedVm.name] || []).map(p => 
+                p.memoryUsedKb > 0
+                  ? `${formatMemory(p.memoryUsedKb)} / ${formatMemory(p.memoryMaxKb)} (${p.memoryPercent.toFixed(1)}%)`
+                  : `0 MB / ${formatMemory(p.memoryMaxKb)} (0.0%)`
+              )}
+              color={theme === "dark" ? "#A855F7" : "#C084FC"}
+              gradientId="memHistoryGrad"
+              label="Memory"
+              currentValue={`${formatMemory(selectedVm.memory)} / ${formatMemory(selectedVm.max_mem)} (${selectedVm.max_mem > 0 ? ((selectedVm.memory / selectedVm.max_mem) * 100).toFixed(1) : "0.0"}%)`}
+              lang={lang}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 };
