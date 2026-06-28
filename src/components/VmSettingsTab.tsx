@@ -310,6 +310,32 @@ export const VmSettingsTab = ({
     setDirty(true);
   };
 
+  const generateRandomMac = () => {
+    const hex = "0123456789abcdef";
+    let mac = "52:54:00";
+    for (let i = 0; i < 3; i++) {
+      mac += ":" + hex[Math.floor(Math.random() * 16)] + hex[Math.floor(Math.random() * 16)];
+    }
+    return mac;
+  };
+
+  const addNic = () => {
+    const newMac = generateRandomMac();
+    const newNic: NicInfo = {
+      mac: newMac,
+      source: networks[0]?.name || "default",
+      source_type: "network",
+      model: "virtio",
+    };
+    setNics([...nics, newNic]);
+    setDirty(true);
+  };
+
+  const removeNic = (index: number) => {
+    setNics(nics.filter((_, i) => i !== index));
+    setDirty(true);
+  };
+
   const updateNic = (index: number, patch: Partial<NicInfo>) => {
     setNics((prev) => prev.map((n, i) => (i === index ? { ...n, ...patch } : n)));
     setDirty(true);
@@ -553,7 +579,7 @@ export const VmSettingsTab = ({
               ))}
               {nics.map((n, index) => (
                 <option key={n.mac} value={`nic:${n.mac}`}>
-                  {lang === "zh" ? `介面卡 ${index + 1} (${n.mac})` : `Adapter ${index + 1} (${n.mac})`}
+                  {lang === "zh" ? `網路介面 ${index + 1} (${n.mac})` : `Interface ${index + 1} (${n.mac})`}
                 </option>
               ))}
             </select>
@@ -752,13 +778,64 @@ export const VmSettingsTab = ({
 
   const renderNetwork = () => (
     <div className="settings-group">
-      <div className="settings-group-title">{t("vm_settings_network")}</div>
+      <div className="settings-group-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>{t("vm_settings_network")}</span>
+        {isStopped && (
+          <button
+            type="button"
+            className="btn-reset-settings"
+            style={{ padding: "0.2rem 0.6rem", fontSize: "0.75rem", borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC" }}
+            onClick={addNic}
+          >
+            + {lang === "zh" ? "新增網路介面" : "Add Interface"}
+          </button>
+        )}
+      </div>
       {nics.length === 0 && <div className="settings-empty">{t("vm_nic_empty")}</div>}
       {nics.map((nic, i) => (
         <div className="device-card" key={nic.mac || i}>
-          <div className="device-card-title">
-            {t("vm_nic")} {i + 1}
-            <span className="device-card-badge">{nic.mac || "—"}</span>
+          <div className="device-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              {t("vm_nic")} {i + 1}
+              <span className="device-card-badge" style={{ marginLeft: "8px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                {nic.mac || "—"}
+                {nic.mac && (
+                  <button
+                    type="button"
+                    className="mac-copy-btn"
+                    onClick={() => {
+                      navigator.clipboard.writeText(nic.mac);
+                      showToastMessage(lang === "zh" ? "已複製 MAC 位址！" : "MAC Address copied!", "success");
+                    }}
+                    title={lang === "zh" ? "複製 MAC 位址" : "Copy MAC Address"}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      margin: 0,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: "11px", height: "11px" }}>
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  </button>
+                )}
+              </span>
+            </div>
+            {isStopped && (
+              <button
+                type="button"
+                className="btn-reset-settings"
+                style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#EF4444" }}
+                onClick={() => removeNic(i)}
+              >
+                {lang === "zh" ? "移除" : "Remove"}
+              </button>
+            )}
           </div>
           <Field label={t("vm_settings_net_source")} hint={t("vm_h_net")}>
             <select
@@ -772,25 +849,62 @@ export const VmSettingsTab = ({
               )}
               {networks.map((net) => (
                 <option key={net.id} value={net.name}>
-                  {net.name} ({net.device})
+                  {net.name} ({net.device} - {net.forwarding.toUpperCase()})
                 </option>
               ))}
             </select>
           </Field>
           <Field label={t("vm_settings_net_model")}>
-            <select
-              className="form-select"
-              value={nic.model}
-              disabled={!isStopped}
-              onChange={(e) => updateNic(i, { model: e.target.value })}
-            >
-              <option value="virtio">virtio</option>
-              <option value="e1000">e1000</option>
-              <option value="rtl8139">rtl8139</option>
-            </select>
-          </Field>
-          <Field label={t("vm_f_mac")}>
-            <input type="text" className="form-input" value={nic.mac} disabled />
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%", position: "relative" }}>
+              <select
+                className="form-select"
+                value={nic.model}
+                disabled={!isStopped}
+                onChange={(e) => updateNic(i, { model: e.target.value })}
+                style={{ flexGrow: 1 }}
+              >
+                <option value="virtio">virtio</option>
+                <option value="e1000">e1000</option>
+                <option value="rtl8139">rtl8139</option>
+              </select>
+              <div 
+                className="nic-info-trigger" 
+                style={{ 
+                  cursor: "help", 
+                  fontSize: "1.1rem", 
+                  color: "#24C6DC", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  padding: "4px"
+                }}
+              >
+                ℹ️
+                <div className="nic-info-tooltip">
+                  {nic.model === "virtio" && (
+                    <span>
+                      {lang === "zh" 
+                        ? "virtio: 半虛擬化網卡。效能最佳、CPU 開銷最小。推薦所有 Linux 及已安裝 VirtIO 驅動的 Windows 使用。速度：10 Gbps+ (最佳效能)。" 
+                        : "virtio: Paravirtualized card. Best performance and lowest CPU overhead. Recommended for Linux and Windows with VirtIO drivers. Speed: 10 Gbps+ (Max performance)."}
+                    </span>
+                  )}
+                  {nic.model === "e1000" && (
+                    <span>
+                      {lang === "zh" 
+                        ? "e1000: 模擬 Intel 82540EM Gigabit 網卡。相容性極佳，幾乎所有作業系統皆有內建驅動，效能中等。速度：1 Gbps (千兆)。" 
+                        : "e1000: Emulates Intel 82540EM Gigabit card. High compatibility, built-in drivers in almost all OSes, moderate performance. Speed: 1 Gbps (Gigabit)."}
+                    </span>
+                  )}
+                  {nic.model === "rtl8139" && (
+                    <span>
+                      {lang === "zh" 
+                        ? "rtl8139: 模擬 Realtek RTL8139 10/100M 舊型網卡。僅用於極古老作業系統相容性測試，效能與速度較差。速度：100 Mbps (百兆)。" 
+                        : "rtl8139: Emulates Realtek RTL8139 legacy 10/100M card. Only used for compatibility with very old OSes, lower speed. Speed: 100 Mbps (Fast Ethernet)."}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </Field>
         </div>
       ))}
@@ -814,12 +928,6 @@ export const VmSettingsTab = ({
 
   return (
     <div className="vm-settings-panel">
-      {toast && (
-        <div className={`settings-toast ${toast.type}`}>
-          <span className="toast-icon">{toast.type === "success" ? "✓" : "✕"}</span>
-          <span>{toast.message}</span>
-        </div>
-      )}
       <div className="vm-settings-header">
         <span className="details-name">{t("tab_settings")}</span>
         <div className="vm-settings-toggle-group">
@@ -874,6 +982,12 @@ export const VmSettingsTab = ({
               <span className={`vm-settings-dirty ${dirty ? "visible" : ""}`}>
                 ● {t("vm_settings_unsaved")}
               </span>
+              {toast && (
+                <div className={`footer-toast ${toast.type}`}>
+                  <span className="toast-icon">{toast.type === "success" ? "✓" : "✕"}</span>
+                  <span>{toast.message}</span>
+                </div>
+              )}
               <div className="vm-settings-footer-actions">
                 <button
                   className="btn-reset-settings"
@@ -885,7 +999,7 @@ export const VmSettingsTab = ({
                 <button
                   className="btn-save-settings"
                   onClick={handleSaveForm}
-                  disabled={saving || loading || !!loadError}
+                  disabled={!dirty || saving || loading || !!loadError}
                 >
                   {saving ? (lang === "zh" ? "儲存中..." : "Saving...") : t("vm_settings_save")}
                 </button>
@@ -919,6 +1033,12 @@ export const VmSettingsTab = ({
             <span className={`vm-settings-dirty ${dirty ? "visible" : ""}`}>
               ● {t("vm_settings_unsaved")}
             </span>
+            {toast && (
+              <div className={`footer-toast ${toast.type}`}>
+                <span className="toast-icon">{toast.type === "success" ? "✓" : "✕"}</span>
+                <span>{toast.message}</span>
+              </div>
+            )}
             <div className="vm-settings-footer-actions">
               <button
                 className="btn-reset-settings"
@@ -930,7 +1050,7 @@ export const VmSettingsTab = ({
               <button
                 className="btn-save-settings"
                 onClick={handleSaveXml}
-                disabled={saving || loading || !!loadError}
+                disabled={!dirty || saving || loading || !!loadError}
               >
                 {saving ? (lang === "zh" ? "儲存中..." : "Saving...") : t("vm_settings_save")}
               </button>

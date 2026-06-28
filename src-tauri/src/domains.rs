@@ -381,26 +381,65 @@ fn update_interfaces_xml(xml: &str, nics: &[NicInfo], boot_device: &str) -> Stri
     } else {
         ""
     };
-    map_blocks(xml, "<interface", "</interface>", |block| {
+
+    // 1. Update existing or delete if not in nics
+    let updated_xml = map_blocks(xml, "<interface", "</interface>", |block| {
         let mac = match get_attr_in_block(block, "<mac", "address") {
             Some(m) => m,
             None => return block.to_string(),
         };
-        let nic = match nics.iter().find(|n| n.mac == mac) {
-            Some(n) => n,
-            None => return block.to_string(),
-        };
-        let mut b = if block.contains("bridge=") {
-            replace_attr_in_block(block, "<source", "bridge", &nic.source)
-        } else {
-            replace_attr_in_block(block, "<source", "network", &nic.source)
-        };
-        b = replace_attr_in_block(&b, "<model", "type", &nic.model);
-        
-        let is_boot = !boot_mac.is_empty() && mac == boot_mac;
-        b = update_block_boot_order(&b, is_boot);
-        b
-    })
+        match nics.iter().find(|n| n.mac == mac) {
+            Some(nic) => {
+                let mut b = if block.contains("bridge=") || nic.source_type == "bridge" {
+                    replace_attr_in_block(block, "<source", "bridge", &nic.source)
+                } else {
+                    replace_attr_in_block(block, "<source", "network", &nic.source)
+                };
+                b = replace_attr_in_block(&b, "<model", "type", &nic.model);
+                
+                let is_boot = !boot_mac.is_empty() && mac == boot_mac;
+                b = update_block_boot_order(&b, is_boot);
+                b
+            }
+            None => "".to_string(), // Delete this interface block
+        }
+    });
+
+    // 2. Add new interfaces
+    let mut new_interfaces_xml = String::new();
+    for nic in nics {
+        let search_pattern = format!("address='{}'", nic.mac);
+        let search_pattern_double = format!("address=\"{}\"", nic.mac);
+        if !updated_xml.contains(&search_pattern) && !updated_xml.contains(&search_pattern_double) {
+            let is_boot = !boot_mac.is_empty() && nic.mac == boot_mac;
+            let source_attr = if nic.source_type == "bridge" {
+                format!("bridge='{}'", nic.source)
+            } else {
+                format!("network='{}'", nic.source)
+            };
+            let if_xml = format!(
+                "    <interface type='{}'>\n      <mac address='{}'/>\n      <source {}/>\n      <model type='{}'/>{}\n    </interface>\n",
+                if nic.source_type.is_empty() { "network" } else { &nic.source_type },
+                nic.mac,
+                source_attr,
+                if nic.model.is_empty() { "virtio" } else { &nic.model },
+                if is_boot { "\n      <boot order='1'/>" } else { "" }
+            );
+            new_interfaces_xml.push_str(&if_xml);
+        }
+    }
+
+    if !new_interfaces_xml.is_empty() {
+        if let Some(devices_idx) = updated_xml.find("</devices>") {
+            let mut final_xml = String::new();
+            final_xml.push_str(&updated_xml[..devices_idx]);
+            final_xml.push_str(&new_interfaces_xml);
+            final_xml.push_str(&updated_xml[devices_idx..]);
+            return final_xml;
+        }
+    }
+
+    updated_xml
 }
 
 // Update/Add/Remove disk blocks, matching the incoming disk list by target dev
@@ -607,42 +646,43 @@ pub fn update_vm_settings(
 
     // While the VM is running only whitelisted changes are permitted: live network
     // switching. Everything else requires the VM to be powered off.
-    if dom.is_active().unwrap_or(false) {
+    let is_active = dom.is_active().unwrap_or(false);
+    if is_active {
         apply_nics_live(&dom, &nics)?;
-        return Ok(());
     }
 
     // --- VM is stopped: full edit allowed below ---
-
-    // Resize each backing volume that grew, and create new ones if they don't exist
-    for disk in &disks {
-        if disk.path.is_empty() {
-            continue;
-        }
-        if std::path::Path::new(&disk.path).exists() {
-            if let Ok(vol) = StorageVol::lookup_by_path(&conn, &disk.path) {
-                if let Ok(vol_info) = vol.get_info() {
-                    let new_size_bytes = disk.capacity_gb * 1024 * 1024 * 1024;
-                    if new_size_bytes > vol_info.capacity {
-                        vol.resize(new_size_bytes, 0)
-                            .map_err(|e| format!("Failed to resize storage volume {}: {}", disk.path, e))?;
+    if !is_active {
+        // Resize each backing volume that grew, and create new ones if they don't exist
+        for disk in &disks {
+            if disk.path.is_empty() {
+                continue;
+            }
+            if std::path::Path::new(&disk.path).exists() {
+                if let Ok(vol) = StorageVol::lookup_by_path(&conn, &disk.path) {
+                    if let Ok(vol_info) = vol.get_info() {
+                        let new_size_bytes = disk.capacity_gb * 1024 * 1024 * 1024;
+                        if new_size_bytes > vol_info.capacity {
+                            vol.resize(new_size_bytes, 0)
+                                .map_err(|e| format!("Failed to resize storage volume {}: {}", disk.path, e))?;
+                        }
                     }
                 }
-            }
-        } else {
-            // Create a new qcow2 image file using qemu-img
-            let size_str = format!("{}G", disk.capacity_gb);
-            let output = std::process::Command::new("qemu-img")
-                .arg("create")
-                .arg("-f")
-                .arg("qcow2")
-                .arg(&disk.path)
-                .arg(&size_str)
-                .output()
-                .map_err(|e| format!("Failed to run qemu-img: {}", e))?;
-            if !output.status.success() {
-                let err_msg = String::from_utf8_lossy(&output.stderr);
-                return Err(format!("Failed to create disk image via qemu-img: {}", err_msg));
+            } else {
+                // Create a new qcow2 image file using qemu-img
+                let size_str = format!("{}G", disk.capacity_gb);
+                let output = std::process::Command::new("qemu-img")
+                    .arg("create")
+                    .arg("-f")
+                    .arg("qcow2")
+                    .arg(&disk.path)
+                    .arg(&size_str)
+                    .output()
+                    .map_err(|e| format!("Failed to run qemu-img: {}", e))?;
+                if !output.status.success() {
+                    let err_msg = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("Failed to create disk image via qemu-img: {}", err_msg));
+                }
             }
         }
     }
