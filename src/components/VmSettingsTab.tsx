@@ -14,7 +14,7 @@ interface VmSettingsTabProps {
 }
 
 type EditorMode = "form" | "xml";
-type Category = "general" | "system" | "display" | "storage" | "network";
+type Category = "general" | "system" | "storage" | "network";
 type SystemSubtab = "motherboard" | "processor";
 
 // Inline stroke icons matching the project's SidebarHeader style
@@ -36,12 +36,6 @@ const icons: Record<Category, ReactNode> = {
       <line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" />
     </svg>
   ),
-  display: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
-    </svg>
-  ),
   storage: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="22" y1="12" x2="2" y2="12" />
@@ -61,12 +55,11 @@ const icons: Record<Category, ReactNode> = {
 const categoryLabel: Record<Category, TranslationKey> = {
   general: "vm_cat_general",
   system: "vm_cat_system",
-  display: "vm_cat_display",
   storage: "vm_settings_storage",
   network: "vm_settings_network",
 };
 
-const CATEGORIES: Category[] = ["general", "system", "display", "storage", "network"];
+const CATEGORIES: Category[] = ["general", "system", "storage", "network"];
 
 // A labelled settings row with optional hint.
 // Defined at module scope so its identity is stable across renders — otherwise
@@ -429,7 +422,6 @@ export const VmSettingsTab = ({
 
   const renderGeneral = () => (
     <div className="settings-group">
-      <div className="settings-group-title">{t("vm_cat_general")}</div>
       <Field label={t("vm_f_name")}>
         <input
           type="text"
@@ -438,18 +430,6 @@ export const VmSettingsTab = ({
           disabled={!canEdit("name")}
           onChange={(e) => edit(setVmName)(e.target.value)}
         />
-      </Field>
-      <Field label={t("vm_f_os")} hint={osLabel || undefined}>
-        <select
-          className="form-select"
-          value={osType}
-          disabled={!canEdit("os")}
-          onChange={(e) => edit(setOsType)(e.target.value)}
-        >
-          <option value="linux">Linux</option>
-          <option value="windows">Windows</option>
-          <option value="other">{lang === "zh" ? "其他" : "Other"}</option>
-        </select>
       </Field>
       <Field label={t("vm_f_arch")}>
         <input type="text" className="form-input" value={osArch || "—"} disabled />
@@ -656,24 +636,6 @@ export const VmSettingsTab = ({
           )}
         </>
       )}
-    </div>
-  );
-
-  const renderDisplay = () => (
-    <div className="settings-group">
-      <div className="settings-group-title">{t("vm_cat_display")}</div>
-      <Field label={t("vm_settings_graphics")} hint={t("vm_h_graphics")}>
-        <select
-          className="form-select"
-          value={vmGraphicsType}
-          disabled={!isStopped}
-          onChange={(e) => edit(setVmGraphicsType)(e.target.value)}
-        >
-          <option value="spice">SPICE</option>
-          <option value="vnc">VNC</option>
-          <option value="none">No Display</option>
-        </select>
-      </Field>
     </div>
   );
 
@@ -966,8 +928,6 @@ export const VmSettingsTab = ({
         return renderGeneral();
       case "system":
         return renderSystem();
-      case "display":
-        return renderDisplay();
       case "storage":
         return renderStorage();
       case "network":

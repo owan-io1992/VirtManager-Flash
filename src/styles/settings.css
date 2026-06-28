@@ -366,9 +366,6 @@
   margin-bottom: -1px;
 }
 
-.settings-subtab:hover {
-  color: #E2E8F0;
-}
 
 .settings-subtab.active {
   color: #24C6DC;
