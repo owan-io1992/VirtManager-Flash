@@ -19,7 +19,7 @@ interface ResourceManagerModalProps {
 export const ResourceManagerModal = ({
   showResModal,
   setShowResModal,
-  lang,
+  lang: _lang,
   libvirtUri,
   setLibvirtUri,
   systemResources,
@@ -206,7 +206,7 @@ export const ResourceManagerModal = ({
     try {
       const sizeGb = parseInt(editingVolumeSize);
       if (isNaN(sizeGb) || sizeGb <= 0) {
-        setActionError("Invalid volume size");
+        setActionError(t("res_invalid_vol_size"));
         return;
       }
       await invoke("resize_volume", { poolName: activeStorage.name, volName, newSizeGb: sizeGb });
@@ -225,7 +225,7 @@ export const ResourceManagerModal = ({
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
             <button
               onClick={onRefresh}
-              title={lang === "zh" ? "立即重新整理" : "Refresh Now"}
+              title={t("res_refresh")}
               className="btn-refresh"
             >
               <svg
@@ -316,13 +316,13 @@ export const ResourceManagerModal = ({
                 </div>
                 <div className="spec-list">
                   <div className="spec-item">
-                    <span className="spec-label">{lang === "zh" ? "OS 平台" : "OS Platform"}</span>
+                    <span className="spec-label">{t("res_os_platform")}</span>
                     <span className="spec-value">
                       {systemResources?.os_platform || "Linux (x86_64)"}
                     </span>
                   </div>
                   <div className="spec-item">
-                    <span className="spec-label">{lang === "zh" ? "處理器" : "Processor"}</span>
+                    <span className="spec-label">{t("res_processor")}</span>
                     <span className="spec-value">
                       {systemResources
                         ? `${systemResources.cpu_cores} Core / ${systemResources.cpu_threads} Thread`
@@ -330,7 +330,7 @@ export const ResourceManagerModal = ({
                     </span>
                   </div>
                   <div className="spec-item">
-                    <span className="spec-label">{lang === "zh" ? "記憶體 (可用 / 總共)" : "Memory (Available / Total)"}</span>
+                    <span className="spec-label">{t("res_mem_label")}</span>
                     <span className="spec-value">
                       {systemResources
                         ? `${((systemResources.mem_available_kb) / 1024 / 1024).toFixed(2)} GB / ${((systemResources.mem_total_kb) / 1024 / 1024).toFixed(2)} GB`
@@ -425,7 +425,7 @@ export const ResourceManagerModal = ({
                         <div className="spec-item">
                           <span className="spec-label">{t("net_autostart")}</span>
                           <span className="spec-value" style={{ color: activeNetwork.autostart ? "#10B981" : "#64748B" }}>
-                            {activeNetwork.autostart ? (lang === "zh" ? "已啟用" : "Enabled") : (lang === "zh" ? "已停用" : "Disabled")}
+                            {activeNetwork.autostart ? t("res_enabled") : t("res_disabled")}
                           </span>
                         </div>
                         <div className="spec-item">
@@ -506,7 +506,7 @@ export const ResourceManagerModal = ({
                   ) : activeStorage ? (
                     <>
                       <div className="settings-group">
-                        <div className="settings-group-title">{lang === "zh" ? "儲存池詳細資訊" : "Storage Pool Details"}</div>
+                        <div className="settings-group-title">{t("res_pool_details")}</div>
                         <div className="spec-list">
                           <div className="spec-item">
                             <span className="spec-label">{t("store_pool_name")}</span>
@@ -519,13 +519,13 @@ export const ResourceManagerModal = ({
                           <div className="spec-item">
                             <span className="spec-label">{t("store_pool_size")}</span>
                             <span className="spec-value">
-                              {activeStorage.used_gb} GB {lang === "zh" ? "已使用" : "In Use"} / {activeStorage.size_gb - activeStorage.used_gb} GB {lang === "zh" ? "可用" : "Free"}
+                              {activeStorage.used_gb} GB {t("res_in_use")} / {activeStorage.size_gb - activeStorage.used_gb} GB {t("res_free")}
                             </span>
                           </div>
                           <div className="spec-item">
                             <span className="spec-label">{t("store_pool_autostart")}</span>
                             <span className="spec-value" style={{ color: activeStorage.autostart ? "#10B981" : "#64748B" }}>
-                              {activeStorage.autostart ? (lang === "zh" ? "已啟用" : "Enabled") : (lang === "zh" ? "已停用" : "Disabled")}
+                              {activeStorage.autostart ? t("res_enabled") : t("res_disabled")}
                             </span>
                           </div>
                         </div>
@@ -550,7 +550,7 @@ export const ResourceManagerModal = ({
                         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                           <input
                             type="text"
-                            placeholder={lang === "zh" ? "搜尋硬碟..." : "Search..."}
+                            placeholder={t("res_search_vol")}
                             value={volSearchQuery}
                             onChange={(e) => setVolSearchQuery(e.target.value)}
                             className="volume-search-input"
@@ -641,14 +641,14 @@ export const ResourceManagerModal = ({
                                         <button
                                           style={{ background: "none", border: "none", color: "#10B981", cursor: "pointer", fontSize: "0.95rem", padding: 0 }}
                                           onClick={() => handleResizeVolume(vol.name)}
-                                          title={lang === "zh" ? "儲存" : "Save"}
+                                          title={t("res_vol_save")}
                                         >
                                           ✓
                                         </button>
                                         <button
                                           style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "0.95rem", padding: 0 }}
                                           onClick={() => setEditingVolumeName(null)}
-                                          title={lang === "zh" ? "取消" : "Cancel"}
+                                          title={t("res_vol_cancel")}
                                         >
                                           ✕
                                         </button>
@@ -662,7 +662,7 @@ export const ResourceManagerModal = ({
                                             const currentGb = parseFloat(vol.size) || 10;
                                             setEditingVolumeSize(Math.round(currentGb).toString());
                                           }}
-                                          title={lang === "zh" ? "編輯大小" : "Edit Size"}
+                                          title={t("res_vol_edit_size")}
                                         >
                                           ✏️
                                         </button>

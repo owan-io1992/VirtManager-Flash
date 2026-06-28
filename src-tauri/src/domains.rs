@@ -790,6 +790,19 @@ pub fn update_vm_settings(
     Ok(())
 }
 
+/// Check whether the QEMU guest agent is reachable in the running VM.
+/// Returns true when the agent responds to guest-ping, false otherwise.
+#[tauri::command]
+pub fn check_guest_agent(name: String) -> Result<bool, String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &name)
+        .map_err(|e| format!("VM not found: {}", e))?;
+    match dom.qemu_agent_command(r#"{"execute":"guest-ping"}"#, 3, 0) {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
+
 /// Return the raw persistent XML for the XML editing mode
 #[tauri::command]
 pub fn get_vm_xml(name: String) -> Result<String, String> {

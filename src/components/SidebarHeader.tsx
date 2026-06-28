@@ -133,7 +133,7 @@ export const SidebarHeader = ({
             className={`btn-refresh ${loading ? "loading" : ""}`}
             onClick={() => fetchDomains()}
             disabled={loading}
-            title="Refresh list"
+            title={t("sidebar_refresh")}
           >
             <svg
               width="14"

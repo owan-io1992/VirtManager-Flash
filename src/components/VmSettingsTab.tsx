@@ -9,7 +9,7 @@ interface VmSettingsTabProps {
   storagePools: StoragePoolItem[];
   systemResources: SystemResources | null;
   lang: "zh" | "en";
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
   onSaveSuccess?: (newName?: string) => void;
 }
 
@@ -360,12 +360,7 @@ export const VmSettingsTab = ({
     for (const d of disks) {
       const orig = initialDisks.find((o) => o.target_dev === d.target_dev);
       if (orig && d.capacity_gb < orig.capacity_gb) {
-        showToastMessage(
-          lang === "zh"
-            ? `不支援縮小虛擬硬碟 ${d.target_dev}！當前容量: ${orig.capacity_gb} GB`
-            : `Shrinking disk ${d.target_dev} is not supported! Current capacity: ${orig.capacity_gb} GB`,
-          "error"
-        );
+        showToastMessage(t("vm_shrink_err", { dev: d.target_dev, gb: orig.capacity_gb }), "error");
         return;
       }
     }
@@ -392,14 +387,14 @@ export const VmSettingsTab = ({
       });
       const renamed = isStopped && vmName.trim() && vmName.trim() !== selectedVm.name;
       if (!renamed) {
-        showToastMessage(lang === "zh" ? "設定變更已成功套用至虛擬機！" : "VM settings saved successfully!", "success");
+        showToastMessage(t("vm_settings_saved"), "success");
       }
       setInitialDisks(disks);
       setDirty(false);
       if (onSaveSuccess) onSaveSuccess(renamed ? vmName.trim() : undefined);
     } catch (err: any) {
       console.error(err);
-      showToastMessage((lang === "zh" ? "儲存設定失敗：" : "Failed to save settings: ") + err.toString(), "error");
+      showToastMessage(t("vm_settings_save_err") + err.toString(), "error");
     } finally {
       setSaving(false);
     }
@@ -409,12 +404,12 @@ export const VmSettingsTab = ({
     setSaving(true);
     try {
       await invoke("save_vm_xml", { xml: xmlText });
-      showToastMessage(lang === "zh" ? "XML 已成功套用至虛擬機！" : "XML applied successfully!", "success");
+      showToastMessage(t("vm_xml_applied"), "success");
       setDirty(false);
       if (onSaveSuccess) onSaveSuccess();
     } catch (err: any) {
       console.error(err);
-      showToastMessage((lang === "zh" ? "套用 XML 失敗：" : "Failed to apply XML: ") + err.toString(), "error");
+      showToastMessage(t("vm_xml_apply_err") + err.toString(), "error");
     } finally {
       setSaving(false);
     }
@@ -556,12 +551,12 @@ export const VmSettingsTab = ({
               <option value="network">{t("boot_device_network")}</option>
               {disks.map((d, index) => (
                 <option key={d.target_dev} value={`disk:${d.target_dev}`}>
-                  {lang === "zh" ? `儲存磁碟區 ${index + 1} (${d.target_dev})` : `Volume ${index + 1} (${d.target_dev})`}
+                  {t("vm_boot_volume", { n: index + 1, dev: d.target_dev })}
                 </option>
               ))}
               {nics.map((n, index) => (
                 <option key={n.mac} value={`nic:${n.mac}`}>
-                  {lang === "zh" ? `網路介面 ${index + 1} (${n.mac})` : `Interface ${index + 1} (${n.mac})`}
+                  {t("vm_boot_nic", { n: index + 1, mac: n.mac })}
                 </option>
               ))}
             </select>
@@ -660,7 +655,7 @@ export const VmSettingsTab = ({
                   style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#EF4444" }}
                   onClick={() => removeDisk(i)}
                 >
-                  {lang === "zh" ? "移除" : "Remove"}
+                  {t("vm_remove")}
                 </button>
               )}
             </div>
@@ -698,7 +693,7 @@ export const VmSettingsTab = ({
               const isExistingVol = activePool.volumes.some(v => v.name === filename);
               return (
                 <>
-                  <Field label={lang === "zh" ? "儲存池 (Storage Pool)" : "Storage Pool"}>
+                  <Field label={t("vm_disk_pool")}>
                     <select
                       className="form-select"
                       disabled={!isStopped}
@@ -719,7 +714,7 @@ export const VmSettingsTab = ({
                     </select>
                   </Field>
 
-                  <Field label={lang === "zh" ? "儲存磁碟區 (Storage Volume)" : "Storage Volume"}>
+                  <Field label={t("vm_disk_volume")}>
                     <select
                       className="form-select"
                       disabled={!isStopped}
@@ -752,7 +747,7 @@ export const VmSettingsTab = ({
                   </Field>
 
                   {(!isExistingVol || filename === "" || disk.path === "") && (
-                    <Field label={lang === "zh" ? "自訂檔案名稱" : "Custom Filename"}>
+                    <Field label={t("vm_custom_filename")}>
                       <input
                         type="text"
                         className="form-input"
@@ -815,9 +810,9 @@ export const VmSettingsTab = ({
                     className="mac-copy-btn"
                     onClick={() => {
                       navigator.clipboard.writeText(nic.mac);
-                      showToastMessage(lang === "zh" ? "已複製 MAC 位址！" : "MAC Address copied!", "success");
+                      showToastMessage(t("vm_mac_copied"), "success");
                     }}
-                    title={lang === "zh" ? "複製 MAC 位址" : "Copy MAC Address"}
+                    title={t("vm_copy_mac")}
                     style={{
                       background: "none",
                       border: "none",
@@ -892,25 +887,13 @@ export const VmSettingsTab = ({
                 ℹ️
                 <div className="nic-info-tooltip">
                   {nic.model === "virtio" && (
-                    <span>
-                      {lang === "zh" 
-                        ? "virtio: 半虛擬化網卡。效能最佳、CPU 開銷最小。推薦所有 Linux 及已安裝 VirtIO 驅動的 Windows 使用。速度：10 Gbps+ (最佳效能)。" 
-                        : "virtio: Paravirtualized card. Best performance and lowest CPU overhead. Recommended for Linux and Windows with VirtIO drivers. Speed: 10 Gbps+ (Max performance)."}
-                    </span>
+                    <span>{t("nic_virtio_desc")}</span>
                   )}
                   {nic.model === "e1000" && (
-                    <span>
-                      {lang === "zh" 
-                        ? "e1000: 模擬 Intel 82540EM Gigabit 網卡。相容性極佳，幾乎所有作業系統皆有內建驅動，效能中等。速度：1 Gbps (千兆)。" 
-                        : "e1000: Emulates Intel 82540EM Gigabit card. High compatibility, built-in drivers in almost all OSes, moderate performance. Speed: 1 Gbps (Gigabit)."}
-                    </span>
+                    <span>{t("nic_e1000_desc")}</span>
                   )}
                   {nic.model === "rtl8139" && (
-                    <span>
-                      {lang === "zh" 
-                        ? "rtl8139: 模擬 Realtek RTL8139 10/100M 舊型網卡。僅用於極古老作業系統相容性測試，效能與速度較差。速度：100 Mbps (百兆)。" 
-                        : "rtl8139: Emulates Realtek RTL8139 legacy 10/100M card. Only used for compatibility with very old OSes, lower speed. Speed: 100 Mbps (Fast Ethernet)."}
-                    </span>
+                    <span>{t("nic_rtl_desc")}</span>
                   )}
                 </div>
               </div>
@@ -1005,7 +988,7 @@ export const VmSettingsTab = ({
                     style={{ borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC", marginRight: "0.25rem" }}
                     onClick={addDisk}
                   >
-                    + {lang === "zh" ? "新增磁碟區" : "Add Volume"}
+                    + {t("vm_add_volume")}
                   </button>
                 )}
                 {isStopped && category === "network" && (
@@ -1015,7 +998,7 @@ export const VmSettingsTab = ({
                     style={{ borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC", marginRight: "0.25rem" }}
                     onClick={addNic}
                   >
-                    + {lang === "zh" ? "新增網路介面" : "Add Interface"}
+                    + {t("vm_add_interface")}
                   </button>
                 )}
                 <button
@@ -1030,7 +1013,7 @@ export const VmSettingsTab = ({
                   onClick={handleSaveForm}
                   disabled={!dirty || saving || loading || !!loadError}
                 >
-                  {saving ? (lang === "zh" ? "儲存中..." : "Saving...") : t("vm_settings_save")}
+                  {saving ? t("vm_saving") : t("vm_settings_save")}
                 </button>
               </div>
             </div>

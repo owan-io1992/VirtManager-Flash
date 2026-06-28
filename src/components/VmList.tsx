@@ -3,16 +3,11 @@ import { DomainItem, Folder } from "../types";
 import { TranslationKey } from "../translations";
 
 // Helper to determine VM state styles
-const getStateInfo = (stateNum: number) => {
+const getStateClass = (stateNum: number) => {
   switch (stateNum) {
-    case 1:
-      return { label: "Running", className: "running" };
-    case 3:
-      return { label: "Paused", className: "paused" };
-    case 5:
-      return { label: "Stopped", className: "stopped" };
-    default:
-      return { label: "Offline", className: "stopped" };
+    case 1: return "running";
+    case 3: return "paused";
+    default: return "stopped";
   }
 };
 
@@ -49,7 +44,7 @@ export const VmList = ({
   setSelectedVmNames,
   lastSelectedName,
   setLastSelectedName,
-  lang,
+  lang: _lang,
   t,
   loading,
   newFolderName,
@@ -310,7 +305,7 @@ export const VmList = ({
           <input
             className="vm-filter-input"
             type="text"
-            placeholder={lang === "zh" ? "搜尋 VM..." : "Filter VMs..."}
+            placeholder={t("filter_vms")}
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
           />
@@ -347,7 +342,6 @@ export const VmList = ({
         {/* Filtered flat list */}
         {isFiltering && filteredDomains!.map((vm) => {
           const isSelected = selectedVmNames.includes(vm.name);
-          const stateInfo = getStateInfo(vm.state);
           return (
             <div
               key={vm.name}
@@ -366,18 +360,18 @@ export const VmList = ({
               <div className="vm-item-details">
                 <span className="vm-item-name">{vm.name}</span>
                 <span className="vm-item-type">
-                  {vm.os_type.toLowerCase().includes("hvm") ? "KVM VM" : "LXC Container"}
+                  {vm.os_type.toLowerCase().includes("hvm") ? t("vm_type_kvm") : t("vm_type_lxc")}
                 </span>
               </div>
               <div className="vm-item-status">
-                <span className={`status-dot-mini ${stateInfo.className}`}></span>
+                <span className={`status-dot-mini ${getStateClass(vm.state)}`}></span>
               </div>
             </div>
           );
         })}
         {isFiltering && filteredDomains!.length === 0 && (
           <div style={{ textAlign: "center", color: "#64748B", padding: "2rem 0", fontSize: "0.85rem" }}>
-            {lang === "zh" ? "找不到符合的 VM" : "No matching VMs"}
+            {t("no_match_vms")}
           </div>
         )}
 
@@ -417,7 +411,7 @@ export const VmList = ({
                   <button
                     className="btn-delete-folder"
                     onClick={(e) => handleDeleteFolder(folder.id, e)}
-                    title="刪除資料夾"
+                    title={t("delete_folder")}
                   >
                     🗑️
                   </button>
@@ -430,8 +424,6 @@ export const VmList = ({
                       const vm = domains.find((d) => d.name === vmName);
                       if (!vm) return null;
                       const isSelected = selectedVmNames.includes(vm.name);
-                      const stateInfo = getStateInfo(vm.state);
-
                       const isInsertionTargetVm = dragInsertion?.targetId === vm.name;
                       const vmClass = `vm-list-item ${isSelected ? "selected" : ""} ${
                         isInsertionTargetVm ? (dragInsertion.position === "before" ? "drag-insert-before" : "drag-insert-after") : ""
@@ -461,18 +453,18 @@ export const VmList = ({
                           <div className="vm-item-details">
                             <span className="vm-item-name">{vm.name}</span>
                             <span className="vm-item-type">
-                              {vm.os_type.toLowerCase().includes("hvm") ? "KVM VM" : "LXC Container"}
+                              {vm.os_type.toLowerCase().includes("hvm") ? t("vm_type_kvm") : t("vm_type_lxc")}
                             </span>
                           </div>
                           <div className="vm-item-status">
-                            <span className={`status-dot-mini ${stateInfo.className}`}></span>
+                            <span className={`status-dot-mini ${getStateClass(vm.state)}`}></span>
                           </div>
                         </div>
                       );
                     })}
                     {folder.vmNames.length === 0 && (
                       <div style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", color: "#64748B", fontStyle: "italic" }}>
-                        {lang === "zh" ? "拖移 VM 到此處..." : "Drag VM here..."}
+                        {t("drag_vm_here")}
                       </div>
                     )}
                   </div>
@@ -484,8 +476,6 @@ export const VmList = ({
             const vm = domains.find((d) => d.name === itemId);
             if (!vm) return null;
             const isSelected = selectedVmNames.includes(vm.name);
-            const stateInfo = getStateInfo(vm.state);
-
             const isInsertionTargetVm = dragInsertion?.targetId === vm.name;
             const vmClass = `vm-list-item ${isSelected ? "selected" : ""} ${
               isInsertionTargetVm ? (dragInsertion.position === "before" ? "drag-insert-before" : "drag-insert-after") : ""
@@ -515,11 +505,11 @@ export const VmList = ({
                 <div className="vm-item-details">
                   <span className="vm-item-name">{vm.name}</span>
                   <span className="vm-item-type">
-                    {vm.os_type.toLowerCase().includes("hvm") ? "KVM VM" : "LXC Container"}
+                    {vm.os_type.toLowerCase().includes("hvm") ? t("vm_type_kvm") : t("vm_type_lxc")}
                   </span>
                 </div>
                 <div className="vm-item-status">
-                  <span className={`status-dot-mini ${stateInfo.className}`}></span>
+                  <span className={`status-dot-mini ${getStateClass(vm.state)}`}></span>
                 </div>
               </div>
             );

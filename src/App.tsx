@@ -107,6 +107,9 @@ function App() {
   const [cpuUsage, setCpuUsage] = useState<{ [name: string]: number }>({});
   const prevCpuTimeRef = useRef<{ [name: string]: { cpuTime: number; timestamp: number } }>({});
 
+  // Guest agent availability per VM name
+  const [guestAgentAvailable, setGuestAgentAvailable] = useState<{ [name: string]: boolean }>({});
+
   // 10 mins metrics history (300 points at 2s interval)
   const [metricsHistory, setMetricsHistory] = useState<{
     [vmName: string]: { 
@@ -237,7 +240,7 @@ function App() {
       });
     } catch (err: any) {
       console.error(err);
-      setError(err?.toString() || "Failed to fetch virtual machines from libvirt.");
+      setError(err?.toString() || t("err_fetch_vms"));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -373,6 +376,24 @@ function App() {
     }
   }, [selectedVmNames]);
 
+  // Check guest agent availability whenever selected VM or its state changes
+  useEffect(() => {
+    const selectedVmName = selectedVmNames[0];
+    if (!selectedVmName) return;
+    const vm = domains.find((d) => d.name === selectedVmName);
+    if (vm?.state !== 1) {
+      setGuestAgentAvailable((prev) => ({ ...prev, [selectedVmName]: false }));
+      return;
+    }
+    invoke<boolean>("check_guest_agent", { name: selectedVmName })
+      .then((available) => {
+        setGuestAgentAvailable((prev) => ({ ...prev, [selectedVmName]: available }));
+      })
+      .catch(() => {
+        setGuestAgentAvailable((prev) => ({ ...prev, [selectedVmName]: false }));
+      });
+  }, [selectedVmNames, domains]);
+
   useEffect(() => {
     const selectedVmName = selectedVmNames[0];
     if (activeTab === "console" && selectedVmName) {
@@ -385,7 +406,7 @@ function App() {
         })
         .catch((err) => {
           console.error(err);
-          setSpiceError(err?.toString() || "Failed to get SPICE port for VM.");
+          setSpiceError(err?.toString() || t("err_spice"));
         })
         .finally(() => {
           setSpiceLoading(false);
@@ -507,10 +528,10 @@ function App() {
 
       if (failures.length > 0) {
         const errorMsgs = failures.map((f) => `${f.name}: ${f.error}`).join("; ");
-        setError(`Batch execution completed with errors: ${errorMsgs}`);
+        setError(t("err_batch_partial") + errorMsgs);
       }
     } catch (err: any) {
-      setError(`Batch action failed: ${err?.toString() || "Unknown error"}`);
+      setError(t("err_batch_failed") + (err?.toString() || "Unknown error"));
     } finally {
       // Clear loading state for all selected VMs
       setActionLoading((prev) => {
@@ -640,6 +661,7 @@ function App() {
                 totalCores={totalCores}
                 totalMemory={totalMemory}
                 formatMemory={formatMemory}
+                t={t}
               />
             ) : (
               // Single VM View
@@ -654,6 +676,8 @@ function App() {
                       cpuUsage={cpuUsage}
                       theme={theme}
                       lang={lang}
+                      guestAgentAvailable={guestAgentAvailable[selectedVm.name] ?? false}
+                      t={t}
                     />
                   ) : activeTab === "console" ? (
                     // Console Tab (Modular Component)
@@ -691,8 +715,8 @@ function App() {
         ) : (
           <div className="details-placeholder">
             <div className="placeholder-icon">🚢</div>
-            <h2>Select an Environment</h2>
-            <p>Choose a KVM virtual machine or LXC container from the sidebar to view details and control actions.</p>
+            <h2>{t("select_env_title")}</h2>
+            <p>{t("select_env_desc")}</p>
           </div>
         )}
       </main>
