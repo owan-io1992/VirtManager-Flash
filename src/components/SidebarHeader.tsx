@@ -12,6 +12,7 @@ interface SidebarHeaderProps {
   canShutdown: boolean;
   handleBatchAction: (action: string) => Promise<void>;
   setShowPrefModal: (show: boolean) => void;
+  setShowResModal: (show: boolean) => void;
   fetchDomains: () => Promise<void>;
   setIsCreatingFolder: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -27,6 +28,7 @@ export const SidebarHeader = ({
   canShutdown,
   handleBatchAction,
   setShowPrefModal,
+  setShowResModal,
   fetchDomains,
   setIsCreatingFolder,
 }: SidebarHeaderProps) => {
@@ -41,15 +43,26 @@ export const SidebarHeader = ({
               <p className="subtitle">{t("brand_subtitle")}</p>
             </div>
           </div>
-          <button
-            className="btn-theme"
-            onClick={() => {
-              setShowPrefModal(true);
-            }}
-            title={t("btn_settings")}
-          >
-            ⚙️
-          </button>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            <button
+              className="btn-theme"
+              onClick={() => {
+                setShowResModal(true);
+              }}
+              title={t("btn_resources")}
+            >
+              🔌
+            </button>
+            <button
+              className="btn-theme"
+              onClick={() => {
+                setShowPrefModal(true);
+              }}
+              title={t("btn_settings")}
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
         <div className="status-badge">
           <span className="status-dot"></span>

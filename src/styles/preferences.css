@@ -233,3 +233,79 @@
   border-color: rgba(0, 0, 0, 0.05);
   background: transparent;
 }
+
+/* Modal Footer */
+.preferences-modal-footer {
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.light-theme .preferences-modal-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Key-Value Spec UI Components */
+.spec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.spec-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  min-height: 44px;
+}
+
+.light-theme .spec-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+.spec-label {
+  font-size: 0.85rem;
+  color: #94A3B8;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.light-theme .spec-label {
+  color: #64748B;
+}
+
+.spec-value {
+  font-size: 0.85rem;
+  color: #F1F5F9;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+.light-theme .spec-value {
+  color: #0F172A;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.preferences-modal-small {
+  max-width: 500px;
+  height: auto;
+  max-height: 480px;
+}
+
+

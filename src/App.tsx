@@ -5,6 +5,7 @@ import "./App.css";
 
 // Modular components
 import { PreferencesModal } from "./components/PreferencesModal";
+import { ResourceManagerModal } from "./components/ResourceManagerModal";
 import { VmSettingsTab } from "./components/VmSettingsTab";
 import { VmList } from "./components/VmList";
 import { SidebarHeader } from "./components/SidebarHeader";
@@ -70,6 +71,7 @@ function App() {
   // App Preferences states
   const [systemResources, setSystemResources] = useState<SystemResources | null>(null);
   const [showPrefModal, setShowPrefModal] = useState(false);
+  const [showResModal, setShowResModal] = useState(false);
   const [libvirtUri, setLibvirtUri] = useState("qemu:///system");
   const [autoconnect, setAutoconnect] = useState(true);
 
@@ -545,6 +547,7 @@ function App() {
           canShutdown={canShutdown}
           handleBatchAction={handleBatchAction}
           setShowPrefModal={setShowPrefModal}
+          setShowResModal={setShowResModal}
           fetchDomains={fetchDomains}
           setIsCreatingFolder={setIsCreatingFolder}
         />
@@ -702,10 +705,18 @@ function App() {
         setTheme={setTheme}
         lang={lang}
         setLang={setLang}
-        libvirtUri={libvirtUri}
-        setLibvirtUri={setLibvirtUri}
         autoconnect={autoconnect}
         setAutoconnect={setAutoconnect}
+        t={t}
+      />
+
+      {/* App Resource Manager Modal */}
+      <ResourceManagerModal
+        showResModal={showResModal}
+        setShowResModal={setShowResModal}
+        lang={lang}
+        libvirtUri={libvirtUri}
+        setLibvirtUri={setLibvirtUri}
         systemResources={systemResources}
         networks={networks}
         storagePools={storagePools}
