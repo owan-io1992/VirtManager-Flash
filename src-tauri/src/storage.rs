@@ -85,6 +85,7 @@ pub fn list_storage_pools() -> Result<Vec<StoragePoolItem>, String> {
         let mut used_gb = 0;
         
         if is_active {
+            pool.refresh(0).ok();
             if let Ok(info) = pool.get_info() {
                 size_gb = info.capacity / 1024 / 1024 / 1024;
                 let free_gb = info.available / 1024 / 1024 / 1024;
@@ -236,3 +237,19 @@ pub fn delete_volume(pool_name: String, vol_name: String) -> Result<(), String> 
         .map(|_| ())
         .map_err(|e| format!("Failed to delete volume: {}", e))
 }
+
+#[tauri::command]
+pub fn resize_volume(pool_name: String, vol_name: String, new_size_gb: u64) -> Result<(), String> {
+    let conn = crate::connect_libvirt()?;
+    let pool = StoragePool::lookup_by_name(&conn, &pool_name)
+        .map_err(|e| format!("Storage pool not found: {}", e))?;
+
+    let vol = StorageVol::lookup_by_name(&pool, &vol_name)
+        .map_err(|e| format!("Volume not found: {}", e))?;
+
+    let size_bytes = new_size_gb * 1024 * 1024 * 1024;
+    vol.resize(size_bytes, 0)
+        .map(|_| ())
+        .map_err(|e| format!("Failed to resize volume: {}", e))
+}
+

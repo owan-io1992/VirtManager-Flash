@@ -73,6 +73,7 @@ pub fn run() {
             storage::create_storage_pool,
             storage::create_volume,
             storage::delete_volume,
+            storage::resize_volume,
             system::set_libvirt_uri,
             system::get_libvirt_uri
         ])

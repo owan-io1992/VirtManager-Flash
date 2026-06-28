@@ -72,6 +72,10 @@ export const PreferencesModal = ({
   const [uriInput, setUriInput] = useState(libvirtUri);
   const [uriSwitching, setUriSwitching] = useState(false);
 
+  // Volume editing state
+  const [editingVolumeName, setEditingVolumeName] = useState<string | null>(null);
+  const [editingVolumeSize, setEditingVolumeSize] = useState("");
+
   if (!showPrefModal) return null;
 
   // Initialize selected item IDs if empty
@@ -200,6 +204,23 @@ export const PreferencesModal = ({
       onRefresh();
     } catch (err: any) {
       setActionError(err?.toString() || "Failed to delete volume");
+    }
+  };
+
+  const handleResizeVolume = async (volName: string) => {
+    if (!activeStorage) return;
+    setActionError(null);
+    try {
+      const sizeGb = parseInt(editingVolumeSize);
+      if (isNaN(sizeGb) || sizeGb <= 0) {
+        setActionError("Invalid volume size");
+        return;
+      }
+      await invoke("resize_volume", { poolName: activeStorage.name, volName, newSizeGb: sizeGb });
+      setEditingVolumeName(null);
+      onRefresh();
+    } catch (err: any) {
+      setActionError(err?.toString() || "Failed to resize volume");
     }
   };
 
@@ -608,17 +629,79 @@ export const PreferencesModal = ({
                               .map((vol) => (
                                 <tr key={vol.name}>
                                   <td>{vol.name}</td>
-                                  <td>{vol.size}</td>
+                                  <td>
+                                    {editingVolumeName === vol.name ? (
+                                      <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+                                        <input
+                                          type="number"
+                                          className="form-input"
+                                          style={{ width: "70px", padding: "0.15rem 0.25rem", fontSize: "0.85rem", height: "auto", margin: 0 }}
+                                          value={editingVolumeSize}
+                                          onChange={(e) => setEditingVolumeSize(e.target.value)}
+                                          min="1"
+                                        />
+                                        <span style={{ fontSize: "0.85rem" }}>GB</span>
+                                      </div>
+                                    ) : (
+                                      vol.size
+                                    )}
+                                  </td>
                                   <td>{vol.format}</td>
                                   <td>{vol.used_by}</td>
                                   <td>
-                                    <button
-                                      style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "0.8rem" }}
-                                      onClick={() => handleDeleteVolume(vol.name)}
-                                      title={t("vol_delete")}
-                                    >
-                                      ✕
-                                    </button>
+                                    {editingVolumeName === vol.name ? (
+                                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                                        <button
+                                          style={{ background: "none", border: "none", color: "#10B981", cursor: "pointer", fontSize: "0.95rem", padding: 0 }}
+                                          onClick={() => handleResizeVolume(vol.name)}
+                                          title={lang === "zh" ? "儲存" : "Save"}
+                                        >
+                                          ✓
+                                        </button>
+                                        <button
+                                          style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "0.95rem", padding: 0 }}
+                                          onClick={() => setEditingVolumeName(null)}
+                                          title={lang === "zh" ? "取消" : "Cancel"}
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                                        <button
+                                          style={{ background: "none", border: "none", color: "#3B82F6", cursor: "pointer", fontSize: "0.85rem", padding: 0, display: "flex", alignItems: "center" }}
+                                          onClick={() => {
+                                            setEditingVolumeName(vol.name);
+                                            const currentGb = parseFloat(vol.size) || 10;
+                                            setEditingVolumeSize(Math.round(currentGb).toString());
+                                          }}
+                                          title={lang === "zh" ? "編輯大小" : "Edit Size"}
+                                        >
+                                          ✏️
+                                        </button>
+                                        <button
+                                          style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}
+                                          onClick={() => handleDeleteVolume(vol.name)}
+                                          title={t("vol_delete")}
+                                        >
+                                          <svg
+                                            width="14"
+                                            height="14"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          >
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    )}
                                   </td>
                                 </tr>
                               ))}

@@ -178,7 +178,6 @@ export const VmSettingsTab = ({
   const [dirty, setDirty] = useState(false);
 
   const maxVcpu = systemResources?.cpu_threads || 128;
-  const maxMemMb = systemResources ? Math.round(systemResources.mem_total_kb / 1024) : 131072;
 
   // Push a fetched VmSettings payload into local editable state
   const applySettings = (s: VmSettings) => {
