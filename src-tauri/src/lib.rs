@@ -64,6 +64,12 @@ pub fn extract_xml_tag_attr(xml: &str, tag_prefix: &str, attr: &str) -> Option<S
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // WebKitGTK's DMA-BUF renderer (default since 2.44) fails to create an EGL
+    // display on many GPU/driver combos (older Mesa, proprietary NVIDIA, VMs),
+    // aborting at startup with "Could not create default EGL display. Aborting...".
+    #[cfg(target_os = "linux")]
+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+
     tauri::async_runtime::spawn(proxy::run_proxy_server());
 
     tauri::Builder::default()
