@@ -2,62 +2,63 @@ name: Build and Release Tauri App
 
 on:
   push:
-    # tags:
-    #   - "V[0-9]+.[0-9]+.[0-9]+"
-    #   - "V[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
+    tags:
+      - "V[0-9]+.[0-9]+.[0-9]+"
+      - "V[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
 
 jobs:
-  # validate:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v7
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-  #     - name: Validate version matches tag
-  #       run: |
-  #         TAG_NAME="${{ github.ref_name }}"
-  #         if [[ ! "$TAG_NAME" =~ ^V([0-9]+\.[0-9]+\.[0-9]+)(-rc[0-9]+)?$ ]]; then
-  #           echo "Error: Tag $TAG_NAME does not follow SemVer pattern V<x.x.x> or V<x.x.x>-rc<n>"
-  #           exit 1
-  #         fi
-  #         TAG_VERSION="${BASH_REMATCH[1]}"
-  #         PACKAGE_VERSION=$(jq -r .version package.json)
-  #         if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
-  #           echo "Error: package.json version ($PACKAGE_VERSION) does not match tag version ($TAG_VERSION)"
-  #           exit 1
-  #         fi
-  #         echo "Version check passed: $PACKAGE_VERSION matches tag's SemVer version: $TAG_VERSION"
+      - name: Validate version matches tag
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          if [[ ! "$TAG_NAME" =~ ^V([0-9]+\.[0-9]+\.[0-9]+)(-rc[0-9]+)?$ ]]; then
+            echo "Error: Tag $TAG_NAME does not follow SemVer pattern V<x.x.x> or V<x.x.x>-rc<n>"
+            exit 1
+          fi
+          TAG_VERSION="${BASH_REMATCH[1]}"
+          PACKAGE_VERSION=$(jq -r .version package.json)
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Error: package.json version ($PACKAGE_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version check passed: $PACKAGE_VERSION matches tag's SemVer version: $TAG_VERSION"
 
   build:
-    # needs: validate
+    needs: validate
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         include:
-          # - arch: amd64
-          #   runs-on: ubuntu-22.04
-          #   os_label: ubuntu22
-          # - arch: arm64
-          #   runs-on: ubuntu-22.04-arm
-          #   os_label: ubuntu22
+          - arch: amd64
+            runs-on: ubuntu-22.04
+            os_label: ubuntu22
+          - arch: arm64
+            runs-on: ubuntu-22.04-arm
+            os_label: ubuntu22
           - arch: amd64
             runs-on: ubuntu-24.04
             os_label: ubuntu24
-          # - arch: arm64
-          #   runs-on: ubuntu-24.04-arm
-          #   os_label: ubuntu24
-          # - arch: amd64
-          #   runs-on: ubuntu-26.04
-          #   os_label: ubuntu26
-          # - arch: arm64
-          #   runs-on: ubuntu-26.04-arm
-          #   os_label: ubuntu26
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            os_label: ubuntu24
+          - arch: amd64
+            runs-on: ubuntu-26.04
+            os_label: ubuntu26
+          - arch: arm64
+            runs-on: ubuntu-26.04-arm
+            os_label: ubuntu26
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             node_modules
@@ -133,31 +134,31 @@ jobs:
           name: AppImage-${{ matrix.os_label }}-${{ matrix.arch }}
           path: VirtManager-Flash_${{ matrix.os_label }}_${{ matrix.arch }}.AppImage
 
-  # release:
-  #   needs: build
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: write
-  #   steps:
-  #     - name: Download all artifacts
-  #       uses: actions/download-artifact@v7
-  #       with:
-  #         merge-multiple: true
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          merge-multiple: true
 
-  #     - name: Determine pre-release status
-  #       id: check-prerelease
-  #       run: |
-  #         if [[ "${{ github.ref_name }}" =~ -rc ]]; then
-  #           echo "prerelease=true" >> $GITHUB_OUTPUT
-  #         else
-  #           echo "prerelease=false" >> $GITHUB_OUTPUT
-  #         fi
+      - name: Determine pre-release status
+        id: check-prerelease
+        run: |
+          if [[ "${{ github.ref_name }}" =~ -rc ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
 
-  #     - name: Create Release
-  #       uses: softprops/action-gh-release@v3
-  #       with:
-  #         files: |
-  #           ./VirtManager-Flash_*_amd64.AppImage
-  #           ./VirtManager-Flash_*_arm64.AppImage
-  #         prerelease: ${{ steps.check-prerelease.outputs.prerelease }}
-  #         generate_release_notes: true
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            ./VirtManager-Flash_*_amd64.AppImage
+            ./VirtManager-Flash_*_arm64.AppImage
+          prerelease: ${{ steps.check-prerelease.outputs.prerelease }}
+          generate_release_notes: true
