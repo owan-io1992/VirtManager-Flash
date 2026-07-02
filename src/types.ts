@@ -7,6 +7,14 @@ export interface DomainItem {
   vcpu_count: number;
   os_type: string;
   cpu_time: number;
+  disk_rd_req: number;
+  disk_rd_bytes: number;
+  disk_wr_req: number;
+  disk_wr_bytes: number;
+  net_rx_bytes: number;
+  net_rx_packets: number;
+  net_tx_bytes: number;
+  net_tx_packets: number;
 }
 
 export interface DiskInfo {
@@ -36,7 +44,7 @@ export interface VmSettings {
   os_arch: string;
   os_machine: string;
   os_type: string;
-  boot_device: string;
+  boot_devices: string[];
   boot_menu: boolean;
   graphics_type: string;
   video_model: string;

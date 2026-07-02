@@ -117,6 +117,19 @@ function App() {
   // CPU usage tracking state & ref
   const [cpuUsage, setCpuUsage] = useState<{ [name: string]: number }>({});
   const prevCpuTimeRef = useRef<{ [name: string]: { cpuTime: number; timestamp: number } }>({});
+  const prevDiskNetRef = useRef<{
+    [name: string]: {
+      diskRdReq: number;
+      diskRdBytes: number;
+      diskWrReq: number;
+      diskWrBytes: number;
+      netRxBytes: number;
+      netRxPackets: number;
+      netTxBytes: number;
+      netTxPackets: number;
+      timestamp: number;
+    }
+  }>({});
 
   // Guest agent availability per VM name
   const [guestAgentAvailable, setGuestAgentAvailable] = useState<{ [name: string]: boolean }>({});
@@ -128,6 +141,14 @@ function App() {
       memoryPercent: number; 
       memoryUsedKb: number; 
       memoryMaxKb: number; 
+      diskReadSpeed: number;
+      diskWriteSpeed: number;
+      diskReadIops: number;
+      diskWriteIops: number;
+      netRxSpeed: number;
+      netTxSpeed: number;
+      netRxPackets: number;
+      netTxPackets: number;
       timestamp: number; 
     }[];
   }>({});
@@ -173,12 +194,36 @@ function App() {
       
       // Compute CPU usage synchronously (outside state updater) 
       // so nextCpuUsage is populated before setCpuUsage reads it
-      const vmMetrics: { [name: string]: { cpuPercent: number; memPercent: number; memUsed: number; memMax: number } } = {};
+      const vmMetrics: {
+        [name: string]: {
+          cpuPercent: number;
+          memPercent: number;
+          memUsed: number;
+          memMax: number;
+          diskReadSpeed: number;
+          diskWriteSpeed: number;
+          diskReadIops: number;
+          diskWriteIops: number;
+          netRxSpeed: number;
+          netTxSpeed: number;
+          netRxPackets: number;
+          netTxPackets: number;
+        };
+      } = {};
+
       list.forEach((vm) => {
         let cpuPercent = 0;
         let memPercent = 0;
         let memUsed = 0;
         let memMax = vm.max_mem;
+        let diskReadSpeed = 0;
+        let diskWriteSpeed = 0;
+        let diskReadIops = 0;
+        let diskWriteIops = 0;
+        let netRxSpeed = 0;
+        let netTxSpeed = 0;
+        let netRxPackets = 0;
+        let netTxPackets = 0;
         
         if (vm.state === 1) { // Running
           const prev = prevCpuTimeRef.current[vm.name];
@@ -199,12 +244,54 @@ function App() {
           if (vm.max_mem > 0) {
             memPercent = (vm.memory / vm.max_mem) * 100;
           }
+
+          // Disk & Net metrics deltas
+          const prevDiskNet = prevDiskNetRef.current[vm.name];
+          if (prevDiskNet) {
+            const timeDiffSec = (now - prevDiskNet.timestamp) / 1000;
+            if (timeDiffSec > 0) {
+              diskReadSpeed = Math.max(0, (vm.disk_rd_bytes - prevDiskNet.diskRdBytes) / timeDiffSec);
+              diskWriteSpeed = Math.max(0, (vm.disk_wr_bytes - prevDiskNet.diskWrBytes) / timeDiffSec);
+              diskReadIops = Math.max(0, (vm.disk_rd_req - prevDiskNet.diskRdReq) / timeDiffSec);
+              diskWriteIops = Math.max(0, (vm.disk_wr_req - prevDiskNet.diskWrReq) / timeDiffSec);
+
+              netRxSpeed = Math.max(0, (vm.net_rx_bytes - prevDiskNet.netRxBytes) / timeDiffSec);
+              netTxSpeed = Math.max(0, (vm.net_tx_bytes - prevDiskNet.netTxBytes) / timeDiffSec);
+              netRxPackets = Math.max(0, (vm.net_rx_packets - prevDiskNet.netRxPackets) / timeDiffSec);
+              netTxPackets = Math.max(0, (vm.net_tx_packets - prevDiskNet.netTxPackets) / timeDiffSec);
+            }
+          }
+          prevDiskNetRef.current[vm.name] = {
+            diskRdReq: vm.disk_rd_req,
+            diskRdBytes: vm.disk_rd_bytes,
+            diskWrReq: vm.disk_wr_req,
+            diskWrBytes: vm.disk_wr_bytes,
+            netRxBytes: vm.net_rx_bytes,
+            netRxPackets: vm.net_rx_packets,
+            netTxBytes: vm.net_tx_bytes,
+            netTxPackets: vm.net_tx_packets,
+            timestamp: now,
+          };
         } else {
           delete prevCpuTimeRef.current[vm.name];
+          delete prevDiskNetRef.current[vm.name];
         }
         
         nextCpuUsage[vm.name] = cpuPercent;
-        vmMetrics[vm.name] = { cpuPercent, memPercent, memUsed, memMax };
+        vmMetrics[vm.name] = { 
+          cpuPercent, 
+          memPercent, 
+          memUsed, 
+          memMax,
+          diskReadSpeed,
+          diskWriteSpeed,
+          diskReadIops,
+          diskWriteIops,
+          netRxSpeed,
+          netTxSpeed,
+          netRxPackets,
+          netTxPackets,
+        };
       });
 
       setMetricsHistory((prevHistory) => {
@@ -223,6 +310,14 @@ function App() {
             memoryPercent: m.memPercent, 
             memoryUsedKb: m.memUsed, 
             memoryMaxKb: m.memMax, 
+            diskReadSpeed: m.diskReadSpeed,
+            diskWriteSpeed: m.diskWriteSpeed,
+            diskReadIops: m.diskReadIops,
+            diskWriteIops: m.diskWriteIops,
+            netRxSpeed: m.netRxSpeed,
+            netTxSpeed: m.netTxSpeed,
+            netRxPackets: m.netRxPackets,
+            netTxPackets: m.netTxPackets,
             timestamp: now 
           }];
           if (updated.length > 300) {

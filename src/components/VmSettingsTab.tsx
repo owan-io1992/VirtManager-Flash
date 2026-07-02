@@ -153,7 +153,7 @@ export const VmSettingsTab = ({
   const [vmTopoCores, setVmTopoCores] = useState(2);
   const [vmThreads, setVmThreads] = useState(1);
   const [vmAutostart, setVmAutostart] = useState(false);
-  const [vmBootDevice, setVmBootDevice] = useState("hd");
+  const [vmBootDevices, setVmBootDevices] = useState<string[]>([]);
   const [vmBootMenu, setVmBootMenu] = useState(false);
   const [vmGraphicsType, setVmGraphicsType] = useState("spice");
   const [vmVideoModel, setVmVideoModel] = useState("qxl");
@@ -203,7 +203,7 @@ export const VmSettingsTab = ({
     setVmThreads(s.cpu_threads || 1);
 
     setVmAutostart(s.autostart);
-    setVmBootDevice(s.boot_device || "hd");
+    setVmBootDevices(s.boot_devices || []);
     setVmBootMenu(s.boot_menu || false);
     setVmGraphicsType(s.graphics_type || "none");
     setVmVideoModel(s.video_model || "qxl");
@@ -380,7 +380,7 @@ export const VmSettingsTab = ({
         memory: valueToKb(vmMemoryVal, vmMemoryUnit),
         maxMemory: valueToKb(vmMaxMemoryVal, vmMaxMemoryUnit),
         autostart: vmAutostart,
-        bootDevice: vmBootDevice,
+        bootDevices: vmBootDevices,
         bootMenu: vmBootMenu,
         graphicsType: vmGraphicsType,
         videoModel: vmVideoModel,
@@ -566,27 +566,107 @@ export const VmSettingsTab = ({
             </div>
           </Field>
           <Field label={t("vm_settings_boot_device")}>
-            <select
-              className="form-select"
-              style={{ width: "240px", height: "38px", boxSizing: "border-box", paddingTop: 0, paddingBottom: 0 }}
-              value={vmBootDevice}
-              disabled={!isStopped}
-              onChange={(e) => edit(setVmBootDevice)(e.target.value)}
-            >
-              <option value="hd">{t("boot_device_hd")}</option>
-              <option value="cdrom">{t("boot_device_cdrom")}</option>
-              <option value="network">{t("boot_device_network")}</option>
-              {disks.map((d, index) => (
-                <option key={d.target_dev} value={`disk:${d.target_dev}`}>
-                  {t("vm_boot_volume", { n: index + 1, dev: d.target_dev })}
-                </option>
-              ))}
-              {nics.map((n, index) => (
-                <option key={n.mac} value={`nic:${n.mac}`}>
-                  {t("vm_boot_nic", { n: index + 1, mac: n.mac })}
-                </option>
-              ))}
-            </select>
+            {(() => {
+              const allDevices = [
+                ...disks.map((d) => ({
+                  id: `disk:${d.target_dev}`,
+                  label: d.device === "cdrom"
+                    ? `${d.bus.toUpperCase()} CDROM (${d.target_dev})`
+                    : `${d.bus === "virtio" ? "VirtIO" : d.bus.toUpperCase()} Disk (${d.target_dev})`,
+                })),
+                ...nics.map((n) => ({
+                  id: `nic:${n.mac}`,
+                  label: `NIC (${n.mac})`,
+                }))
+              ];
+
+              const orderedList = [...allDevices].sort((a, b) => {
+                const aIdx = vmBootDevices.indexOf(a.id);
+                const bIdx = vmBootDevices.indexOf(b.id);
+                const aEnabled = aIdx !== -1;
+                const bEnabled = bIdx !== -1;
+
+                if (aEnabled && bEnabled) return aIdx - bIdx;
+                if (aEnabled && !bEnabled) return -1;
+                if (!aEnabled && bEnabled) return 1;
+                return 0;
+              });
+
+              return (
+                <div className="boot-order-container" style={{ border: "1px solid #E5E7EB", borderRadius: "0.375rem", padding: "0.5rem", width: "100%", maxWidth: "350px" }}>
+                  {orderedList.map((item, idx) => {
+                    const isEnabled = vmBootDevices.includes(item.id);
+                    const pos = vmBootDevices.indexOf(item.id);
+                    return (
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.25rem 0.5rem", borderBottom: idx < orderedList.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: isStopped ? "pointer" : "default" }}>
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            disabled={!isStopped}
+                            onChange={(e) => {
+                              let newDevs = [...vmBootDevices];
+                              if (e.target.checked) {
+                                newDevs.push(item.id);
+                              } else {
+                                newDevs = newDevs.filter(id => id !== item.id);
+                              }
+                              edit(setVmBootDevices)(newDevs);
+                            }}
+                          />
+                          <span style={{ fontSize: "14px", color: isEnabled ? "#111827" : "#6B7280" }}>
+                            {item.label}
+                          </span>
+                        </label>
+                        {isEnabled && isStopped && (
+                          <div style={{ display: "flex", gap: "0.25rem" }}>
+                            <button
+                              type="button"
+                              className="btn-order"
+                              style={{ padding: "1px 6px", fontSize: "12px", border: "1px solid #D1D5DB", borderRadius: "4px", background: "#FFF", cursor: "pointer" }}
+                              disabled={pos === 0}
+                              onClick={() => {
+                                if (pos > 0) {
+                                  const newDevs = [...vmBootDevices];
+                                  const temp = newDevs[pos - 1];
+                                  newDevs[pos - 1] = newDevs[pos];
+                                  newDevs[pos] = temp;
+                                  edit(setVmBootDevices)(newDevs);
+                                }
+                              }}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-order"
+                              style={{ padding: "1px 6px", fontSize: "12px", border: "1px solid #D1D5DB", borderRadius: "4px", background: "#FFF", cursor: "pointer" }}
+                              disabled={pos === vmBootDevices.length - 1}
+                              onClick={() => {
+                                if (pos < vmBootDevices.length - 1) {
+                                  const newDevs = [...vmBootDevices];
+                                  const temp = newDevs[pos + 1];
+                                  newDevs[pos + 1] = newDevs[pos];
+                                  newDevs[pos] = temp;
+                                  edit(setVmBootDevices)(newDevs);
+                                }
+                              }}
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {orderedList.length === 0 && (
+                    <div style={{ padding: "0.5rem", color: "#9CA3AF", fontSize: "14px", textAlign: "center" }}>
+                      No bootable devices available.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </Field>
           <Field label={t("vm_settings_bootmenu")}>
             <input
@@ -734,8 +814,8 @@ export const VmSettingsTab = ({
                         return isNewCdrom ? isIso : !isIso;
                       });
                       const defaultVol = filteredVols[0];
-                      const newPath = defaultVol 
-                        ? activePool.location + "/" + defaultVol.name 
+                      const newPath = defaultVol
+                        ? activePool.location + "/" + defaultVol.name
                         : "";
                       const newBus = isNewCdrom ? "sata" : "virtio";
                       updateDisk(i, { device: newDevice, path: newPath, bus: newBus });
@@ -824,8 +904,8 @@ export const VmSettingsTab = ({
             )}
 
             {(() => {
-              const volSizeInfo = isExistingVol 
-                ? parseSizeAndUnit(activePool.volumes.find(v => v.name === filename)?.size || "") 
+              const volSizeInfo = isExistingVol
+                ? parseSizeAndUnit(activePool.volumes.find(v => v.name === filename)?.size || "")
                 : { value: disk.capacity_gb, unit: "GB" };
               return (
                 <Field label={`${t("vm_settings_disk_size")} (${volSizeInfo.unit})`} hint={t("vm_h_disk_size")}>
@@ -938,14 +1018,14 @@ export const VmSettingsTab = ({
                 <option value="e1000">e1000</option>
                 <option value="rtl8139">rtl8139</option>
               </select>
-              <div 
-                className="nic-info-trigger" 
-                style={{ 
-                  cursor: "help", 
-                  fontSize: "1.1rem", 
-                  color: "#24C6DC", 
-                  display: "flex", 
-                  alignItems: "center", 
+              <div
+                className="nic-info-trigger"
+                style={{
+                  cursor: "help",
+                  fontSize: "1.1rem",
+                  color: "#24C6DC",
+                  display: "flex",
+                  alignItems: "center",
                   justifyContent: "center",
                   padding: "4px"
                 }}

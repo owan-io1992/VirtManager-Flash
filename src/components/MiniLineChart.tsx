@@ -9,6 +9,8 @@ interface MiniLineChartProps {
   label: string;
   currentValue: string;
   lang?: "zh" | "en";
+  maxVal?: number;
+  yLabelFormatter?: (val: number) => string;
 }
 
 const WINDOW_MS = 10 * 60 * 1000; // 10 minutes in ms
@@ -21,7 +23,9 @@ export const MiniLineChart = ({
   gradientId,
   label,
   currentValue,
-  lang
+  lang,
+  maxVal,
+  yLabelFormatter
 }: MiniLineChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 500, height: 150 });
@@ -64,6 +68,11 @@ export const MiniLineChart = ({
     }
   }
 
+  // Find max value in visible indices to auto-scale, fallback to 100 or a minimum ceiling
+  const visibleVals = visibleIndices.map(i => data[i]);
+  const dataMax = visibleVals.length > 0 ? Math.max(...visibleVals) : 0;
+  const maxLimit = maxVal !== undefined ? maxVal : (dataMax > 0 ? Math.max(dataMax * 1.1, 1) : 100);
+
   // Map timestamp to X position within the fixed window
   const tsToX = (ts: number) => {
     const pct = (ts - windowStart) / WINDOW_MS;
@@ -73,7 +82,7 @@ export const MiniLineChart = ({
   // Build coordinates for visible points
   const coords = visibleIndices.map((i) => ({
     x: tsToX(timestamps[i]),
-    y: paddingTop + chartHeight - (Math.min(100, Math.max(0, data[i])) / 100) * chartHeight,
+    y: paddingTop + chartHeight - (Math.min(maxLimit, Math.max(0, data[i])) / maxLimit) * chartHeight,
     dataIdx: i,
   }));
 
@@ -140,6 +149,19 @@ export const MiniLineChart = ({
     ? `${getHoveredValueString(hoveredIdx)} (@ ${formatTime(timestamps[coords[hoveredIdx].dataIdx])})`
     : currentValue;
 
+  const formatYLabel = (val: number) => {
+    if (yLabelFormatter) {
+      return yLabelFormatter(val);
+    }
+    if (maxVal !== undefined) {
+      return `${val.toFixed(0)}%`;
+    }
+    if (dataMax > 0) {
+      return val.toFixed(0);
+    }
+    return `${val.toFixed(0)}%`;
+  };
+
   return (
     <div className="line-chart-card">
       <div className="chart-info">
@@ -162,9 +184,9 @@ export const MiniLineChart = ({
             pointerEvents: "none"
           }}
         >
-          <span className="chart-axis-text">100%</span>
-          <span className="chart-axis-text">50%</span>
-          <span className="chart-axis-text">0%</span>
+          <span className="chart-axis-text">{formatYLabel(maxLimit)}</span>
+          <span className="chart-axis-text">{formatYLabel(maxLimit / 2)}</span>
+          <span className="chart-axis-text">{formatYLabel(0)}</span>
         </div>
 
         <svg 

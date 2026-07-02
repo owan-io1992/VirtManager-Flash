@@ -13,6 +13,14 @@ pub struct DomainItem {
     pub vcpu_count: u32,
     pub os_type: String,
     pub cpu_time: u64,
+    pub disk_rd_req: i64,
+    pub disk_rd_bytes: i64,
+    pub disk_wr_req: i64,
+    pub disk_wr_bytes: i64,
+    pub net_rx_bytes: i64,
+    pub net_rx_packets: i64,
+    pub net_tx_bytes: i64,
+    pub net_tx_packets: i64,
 }
 
 #[tauri::command]
@@ -39,6 +47,15 @@ pub fn list_domains() -> Result<Vec<DomainItem>, String> {
         let mut memory = 0;
         let mut vcpu_count = 0;
         let mut cpu_time = 0;
+        
+        let mut disk_rd_req = 0i64;
+        let mut disk_rd_bytes = 0i64;
+        let mut disk_wr_req = 0i64;
+        let mut disk_wr_bytes = 0i64;
+        let mut net_rx_bytes = 0i64;
+        let mut net_rx_packets = 0i64;
+        let mut net_tx_bytes = 0i64;
+        let mut net_tx_packets = 0i64;
         
         if let Ok(info) = dom.get_info() {
             state = info.state;
@@ -85,6 +102,31 @@ pub fn list_domains() -> Result<Vec<DomainItem>, String> {
                     memory = rss;
                 }
             }
+            
+            // Get disk and network stats
+            if let Ok(xml) = dom.get_xml_desc(0) {
+                for block in collect_blocks(&xml, "<disk", "</disk>") {
+                    if let Some(target_dev) = get_attr_in_block(&block, "<target", "dev") {
+                        if let Ok(stats) = dom.get_block_stats(&target_dev) {
+                            disk_rd_req += stats.rd_req;
+                            disk_rd_bytes += stats.rd_bytes;
+                            disk_wr_req += stats.wr_req;
+                            disk_wr_bytes += stats.wr_bytes;
+                        }
+                    }
+                }
+                
+                for block in collect_blocks(&xml, "<interface", "</interface>") {
+                    if let Some(target_dev) = get_attr_in_block(&block, "<target", "dev") {
+                        if let Ok(stats) = dom.interface_stats(&target_dev) {
+                            net_rx_bytes += stats.rx_bytes;
+                            net_rx_packets += stats.rx_packets;
+                            net_tx_bytes += stats.tx_bytes;
+                            net_tx_packets += stats.tx_packets;
+                        }
+                    }
+                }
+            }
         }
 
         list.push(DomainItem {
@@ -96,6 +138,14 @@ pub fn list_domains() -> Result<Vec<DomainItem>, String> {
             vcpu_count,
             os_type,
             cpu_time,
+            disk_rd_req,
+            disk_rd_bytes,
+            disk_wr_req,
+            disk_wr_bytes,
+            net_rx_bytes,
+            net_rx_packets,
+            net_tx_bytes,
+            net_tx_packets,
         });
     }
 
@@ -404,7 +454,7 @@ fn replace_attr_in_block(block: &str, tag_prefix: &str, attr: &str, new_val: &st
     block.to_string()
 }
 
-fn update_block_boot_order(block: &str, is_boot: bool) -> String {
+fn update_block_boot_order(block: &str, boot_order: Option<u32>) -> String {
     let mut b = block.to_string();
     // Remove existing <boot .../> tags inside the block
     while let Some(boot_start) = b.find("<boot") {
@@ -419,11 +469,11 @@ fn update_block_boot_order(block: &str, is_boot: bool) -> String {
         }
     }
     
-    if is_boot {
+    if let Some(order) = boot_order {
         if let Some(close_idx) = b.rfind("</") {
             let mut inserted = String::new();
             inserted.push_str(&b[..close_idx]);
-            inserted.push_str("  <boot order='1'/>\n      ");
+            inserted.push_str(&format!("  <boot order='{}'/>\n      ", order));
             inserted.push_str(&b[close_idx..]);
             b = inserted;
         }
@@ -451,14 +501,7 @@ fn update_bootmenu_xml(xml: &str, enable: bool) -> String {
     }
 }
 
-// Update each interface block, matching the incoming NIC list by MAC address
-fn update_interfaces_xml(xml: &str, nics: &[NicInfo], boot_device: &str) -> String {
-    let boot_mac = if boot_device.starts_with("nic:") {
-        boot_device.strip_prefix("nic:").unwrap_or("")
-    } else {
-        ""
-    };
-
+fn update_interfaces_xml(xml: &str, nics: &[NicInfo], boot_devices: &[String]) -> String {
     // 1. Update existing or delete if not in nics
     let updated_xml = map_blocks(xml, "<interface", "</interface>", |block| {
         let mac = match get_attr_in_block(block, "<mac", "address") {
@@ -474,8 +517,9 @@ fn update_interfaces_xml(xml: &str, nics: &[NicInfo], boot_device: &str) -> Stri
                 };
                 b = replace_attr_in_block(&b, "<model", "type", &nic.model);
                 
-                let is_boot = !boot_mac.is_empty() && mac == boot_mac;
-                b = update_block_boot_order(&b, is_boot);
+                let id = format!("nic:{}", mac);
+                let boot_order = boot_devices.iter().position(|x| x == &id).map(|pos| (pos + 1) as u32);
+                b = update_block_boot_order(&b, boot_order);
                 b
             }
             None => "".to_string(), // Delete this interface block
@@ -488,7 +532,13 @@ fn update_interfaces_xml(xml: &str, nics: &[NicInfo], boot_device: &str) -> Stri
         let search_pattern = format!("address='{}'", nic.mac);
         let search_pattern_double = format!("address=\"{}\"", nic.mac);
         if !updated_xml.contains(&search_pattern) && !updated_xml.contains(&search_pattern_double) {
-            let is_boot = !boot_mac.is_empty() && nic.mac == boot_mac;
+            let id = format!("nic:{}", nic.mac);
+            let boot_order = boot_devices.iter().position(|x| x == &id).map(|pos| (pos + 1) as u32);
+            let boot_tag = if let Some(order) = boot_order {
+                format!("\n      <boot order='{}'/>", order)
+            } else {
+                "".to_string()
+            };
             let source_attr = if nic.source_type == "bridge" {
                 format!("bridge='{}'", nic.source)
             } else {
@@ -500,7 +550,7 @@ fn update_interfaces_xml(xml: &str, nics: &[NicInfo], boot_device: &str) -> Stri
                 nic.mac,
                 source_attr,
                 if nic.model.is_empty() { "virtio" } else { &nic.model },
-                if is_boot { "\n      <boot order='1'/>" } else { "" }
+                boot_tag
             );
             new_interfaces_xml.push_str(&if_xml);
         }
@@ -520,13 +570,7 @@ fn update_interfaces_xml(xml: &str, nics: &[NicInfo], boot_device: &str) -> Stri
 }
 
 // Update/Add/Remove disk blocks, matching the incoming disk list by target dev
-fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_device: &str) -> String {
-    let boot_dev_name = if boot_device.starts_with("disk:") {
-        boot_device.strip_prefix("disk:").unwrap_or("")
-    } else {
-        ""
-    };
-
+fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_devices: &[String]) -> String {
     // 1. Update existing disks or remove them if not in the new list
     let updated_xml = map_blocks(xml, "<disk", "</disk>", |block| {
         let dev = match get_attr_in_block(block, "<target", "dev") {
@@ -557,8 +601,9 @@ fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_device: &str) -> String 
                     b = b.replace("<readonly/>", "").replace("<readonly />", "");
                 }
                 
-                let is_boot = !boot_dev_name.is_empty() && dev == boot_dev_name;
-                b = update_block_boot_order(&b, is_boot);
+                let id = format!("disk:{}", dev);
+                let boot_order = boot_devices.iter().position(|x| x == &id || (is_cdrom && x == "cdrom")).map(|pos| (pos + 1) as u32);
+                b = update_block_boot_order(&b, boot_order);
                 b
             }
             None => "".to_string(), // Return empty string to delete this disk block
@@ -571,8 +616,14 @@ fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_device: &str) -> String 
         let search_pattern = format!("dev='{}'", disk.target_dev);
         let search_pattern_double = format!("dev=\"{}\"", disk.target_dev);
         if !updated_xml.contains(&search_pattern) && !updated_xml.contains(&search_pattern_double) {
-            let is_boot = !boot_dev_name.is_empty() && disk.target_dev == boot_dev_name;
             let is_cdrom = disk.device == "cdrom";
+            let id = format!("disk:{}", disk.target_dev);
+            let boot_order = boot_devices.iter().position(|x| x == &id || (is_cdrom && x == "cdrom")).map(|pos| (pos + 1) as u32);
+            let boot_tag = if let Some(order) = boot_order {
+                format!("\n      <boot order='{}'/>", order)
+            } else {
+                "".to_string()
+            };
             let driver_type = if is_cdrom { "raw" } else { "qcow2" };
             let readonly_tag = if is_cdrom { "\n      <readonly/>" } else { "" };
             let disk_xml = format!(
@@ -583,7 +634,7 @@ fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_device: &str) -> String 
                 disk.target_dev,
                 if disk.bus.is_empty() { "virtio" } else { &disk.bus },
                 readonly_tag,
-                if is_boot { "\n      <boot order='1'/>" } else { "" }
+                boot_tag
             );
             new_disks_xml.push_str(&disk_xml);
         }
@@ -602,40 +653,33 @@ fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_device: &str) -> String 
     updated_xml
 }
 
-fn update_boot_xml(xml: &str, boot_dev: &str) -> String {
-    if boot_dev.starts_with("disk:") || boot_dev.starts_with("nic:") {
-        // Remove <boot dev='...'/> completely
-        let mut b = xml.to_string();
-        while let Some(boot_idx) = b.find("<boot ") {
-            if let Some(rel_end) = b[boot_idx..].find('>') {
-                let boot_end = boot_idx + rel_end + 1;
-                let mut cleaned = String::new();
-                cleaned.push_str(&b[..boot_idx]);
-                cleaned.push_str(&b[boot_end..]);
-                b = cleaned;
-            } else {
-                break;
-            }
-        }
-        b
-    } else {
-        if xml.contains("<boot ") {
-            replace_attr_in_block(xml, "<boot", "dev", boot_dev)
-        } else if let Some(os_idx) = xml.find("<os") {
-            if let Some(rel_end) = xml[os_idx..].find('>') {
-                let insert_at = os_idx + rel_end + 1;
-                let mut result = String::new();
-                result.push_str(&xml[..insert_at]);
-                result.push_str(&format!("<boot dev='{}'/>", boot_dev));
-                result.push_str(&xml[insert_at..]);
-                result
-            } else {
-                xml.to_string()
-            }
+fn update_boot_xml(xml: &str, boot_devices: &[String]) -> String {
+    let mut b = xml.to_string();
+    while let Some(boot_idx) = b.find("<boot ") {
+        if let Some(rel_end) = b[boot_idx..].find('>') {
+            let boot_end = boot_idx + rel_end + 1;
+            let mut cleaned = String::new();
+            cleaned.push_str(&b[..boot_idx]);
+            cleaned.push_str(&b[boot_end..]);
+            b = cleaned;
         } else {
-            xml.to_string()
+            break;
         }
     }
+    
+    if boot_devices.is_empty() {
+        if let Some(os_idx) = b.find("<os") {
+            if let Some(rel_end) = b[os_idx..].find('>') {
+                let insert_at = os_idx + rel_end + 1;
+                let mut result = String::new();
+                result.push_str(&b[..insert_at]);
+                result.push_str("<boot dev='hd'/>");
+                result.push_str(&b[insert_at..]);
+                return result;
+            }
+        }
+    }
+    b
 }
 
 fn update_graphics_xml(xml: &str, graphics_type: &str) -> String {
@@ -887,7 +931,7 @@ pub fn update_vm_settings(
     memory: u64,
     max_memory: u64,
     autostart: bool,
-    boot_device: String,
+    boot_devices: Vec<String>,
     boot_menu: bool,
     graphics_type: String,
     video_model: String,
@@ -998,7 +1042,7 @@ pub fn update_vm_settings(
     xml = replace_tag_content(&xml, "vcpu", &cpu.to_string());
 
     // Modify boot device
-    xml = update_boot_xml(&xml, &boot_device);
+    xml = update_boot_xml(&xml, &boot_devices);
 
     // Modify boot menu
     xml = update_bootmenu_xml(&xml, boot_menu);
@@ -1015,8 +1059,8 @@ pub fn update_vm_settings(
     xml = update_topology_xml(&xml, cpu_sockets, cpu_cores, cpu_threads);
 
     // Modify every disk and network interface by identity (target dev / MAC)
-    xml = update_disks_xml(&xml, &disks, &boot_device);
-    xml = update_interfaces_xml(&xml, &nics, &boot_device);
+    xml = update_disks_xml(&xml, &disks, &boot_devices);
+    xml = update_interfaces_xml(&xml, &nics, &boot_devices);
 
     // Modify video model
     xml = update_video_xml(&xml, &video_model);
@@ -1142,7 +1186,7 @@ pub struct VmSettings {
     pub os_arch: String,    // e.g. x86_64
     pub os_machine: String, // e.g. pc-q35-7.2
     pub os_type: String,    // VirtManager-Flash OS family: linux / windows / other
-    pub boot_device: String,
+    pub boot_devices: Vec<String>,
     pub boot_menu: bool,
     pub graphics_type: String,
     pub video_model: String,
@@ -1199,7 +1243,7 @@ fn friendly_os(id: &str) -> String {
 }
 
 fn parse_disks(xml: &str, conn: &virt::connect::Connect) -> Vec<DiskInfo> {
-    collect_blocks(xml, "<disk", "</disk>")
+    let mut disks: Vec<DiskInfo> = collect_blocks(xml, "<disk", "</disk>")
         .iter()
         .map(|block| {
             let path = get_attr_in_block(block, "<source", "file")
@@ -1220,7 +1264,19 @@ fn parse_disks(xml: &str, conn: &virt::connect::Connect) -> Vec<DiskInfo> {
 
             DiskInfo { target_dev, path, capacity_gb, bus, device }
         })
-        .collect()
+        .collect();
+
+    disks.sort_by(|a, b| {
+        let a_is_disk = a.device == "disk";
+        let b_is_disk = b.device == "disk";
+        match (a_is_disk, b_is_disk) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.target_dev.cmp(&b.target_dev),
+        }
+    });
+
+    disks
 }
 
 fn parse_nics(xml: &str) -> Vec<NicInfo> {
@@ -1280,22 +1336,60 @@ pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
         .unwrap_or_default();
     let os_type = detect_os_type(&xml);
 
-    let mut boot_device = get_attr_in_block(&xml, "<boot", "dev").unwrap_or_else(|| "hd".to_string());
+    let mut boot_devs_with_order: Vec<(u32, String)> = Vec::new();
+
     for block in collect_blocks(&xml, "<disk", "</disk>") {
-        if get_attr_in_block(&block, "<boot", "order").is_some() {
-            if let Some(dev) = get_attr_in_block(&block, "<target", "dev") {
-                boot_device = format!("disk:{}", dev);
-                break;
+        if let Some(order_str) = get_attr_in_block(&block, "<boot", "order") {
+            if let Ok(order) = order_str.parse::<u32>() {
+                if let Some(dev) = get_attr_in_block(&block, "<target", "dev") {
+                    boot_devs_with_order.push((order, format!("disk:{}", dev)));
+                }
             }
         }
     }
-    if boot_device == "hd" {
-        for block in collect_blocks(&xml, "<interface", "</interface>") {
-            if get_attr_in_block(&block, "<boot", "order").is_some() {
+
+    for block in collect_blocks(&xml, "<interface", "</interface>") {
+        if let Some(order_str) = get_attr_in_block(&block, "<boot", "order") {
+            if let Ok(order) = order_str.parse::<u32>() {
                 if let Some(mac) = get_attr_in_block(&block, "<mac", "address") {
-                    boot_device = format!("nic:{}", mac);
-                    break;
+                    boot_devs_with_order.push((order, format!("nic:{}", mac)));
                 }
+            }
+        }
+    }
+
+    boot_devs_with_order.sort_by_key(|&(order, _)| order);
+    let boot_devices_raw: Vec<String> = boot_devs_with_order.into_iter().map(|(_, dev)| dev).collect();
+
+    // Map legacy boot options if there is no granular boot order
+    let mut boot_devices = if boot_devices_raw.is_empty() {
+        let mut devs = Vec::new();
+        if let Some(legacy_dev) = get_attr_in_block(&xml, "<boot", "dev") {
+            devs.push(legacy_dev);
+        } else {
+            devs.push("hd".to_string());
+        }
+        devs
+    } else {
+        boot_devices_raw
+    };
+
+    // Resolve generic legacy keys to specific devices to make front-end mapping robust
+    let parsed_disks = parse_disks(&xml, &conn);
+    let parsed_nics = parse_nics(&xml);
+    for idx in 0..boot_devices.len() {
+        let dev = &boot_devices[idx];
+        if dev == "cdrom" {
+            if let Some(d) = parsed_disks.iter().find(|d| d.device == "cdrom") {
+                boot_devices[idx] = format!("disk:{}", d.target_dev);
+            }
+        } else if dev == "hd" {
+            if let Some(d) = parsed_disks.iter().find(|d| d.device == "disk") {
+                boot_devices[idx] = format!("disk:{}", d.target_dev);
+            }
+        } else if dev == "network" {
+            if let Some(n) = parsed_nics.first() {
+                boot_devices[idx] = format!("nic:{}", n.mac);
             }
         }
     }
@@ -1326,7 +1420,7 @@ pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
         os_arch,
         os_machine,
         os_type,
-        boot_device,
+        boot_devices,
         boot_menu,
         graphics_type,
         video_model: collect_blocks(&xml, "<video", "</video>")
@@ -1334,8 +1428,8 @@ pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
             .and_then(|block| get_attr_in_block(block, "<model", "type"))
             .unwrap_or_else(|| "qxl".to_string()),
         autostart,
-        disks: parse_disks(&xml, &conn),
-        nics: parse_nics(&xml),
+        disks: parsed_disks,
+        nics: parsed_nics,
         secure_boot,
         tpm,
     })
