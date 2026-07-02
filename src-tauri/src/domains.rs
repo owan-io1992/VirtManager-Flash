@@ -686,8 +686,56 @@ fn update_boot_xml(xml: &str, boot_devices: &[String]) -> String {
 }
 
 fn update_graphics_xml(xml: &str, graphics_type: &str) -> String {
-    if xml.contains("<graphics ") {
-        replace_attr_in_block(xml, "<graphics", "type", graphics_type)
+    if xml.contains("<graphics") {
+        let mut new_xml = replace_attr_in_block(xml, "<graphics", "type", graphics_type);
+        
+        // If graphics is spice, let's inject SPICE optimization parameters
+        if graphics_type == "spice" {
+            // Find the <graphics ...> ... </graphics> block
+            if let Some(start_idx) = new_xml.find("<graphics") {
+                if let Some(rel_end) = new_xml[start_idx..].find("</graphics>") {
+                    let end_idx = start_idx + rel_end + "</graphics>".len();
+                    let block = &new_xml[start_idx..end_idx];
+                    
+                    // We will reconstruct the <graphics> element
+                    // Extract attributes from the opening tag, keeping things like autoport='yes', etc.
+                    if let Some(open_tag_end_rel) = block.find('>') {
+                        let open_tag = &block[..open_tag_end_rel + 1];
+                        
+                        // We rebuild the internal block with optimization elements
+                        // <listen type='address'/> is usually present or can be preserved, but let's keep it clean
+                        let mut listen_line = "      <listen type='address'/>\n".to_string();
+                        if block.contains("<listen") {
+                            // Extract existing listen element if present
+                            if let Some(l_start) = block.find("<listen") {
+                                if let Some(l_end_rel) = block[l_start..].find('>') {
+                                    listen_line = format!("      {}\n", &block[l_start..l_start + l_end_rel + 1]);
+                                }
+                            }
+                        }
+                        
+                        let optimized_block = format!(
+                            "{}\n{}      <image compression='lz'/>\n      <streaming mode='off'/>\n    </graphics>",
+                            open_tag, listen_line
+                        );
+                        
+                        new_xml.replace_range(start_idx..end_idx, &optimized_block);
+                    }
+                } else if let Some(rel_end) = new_xml[start_idx..].find("/>") {
+                    // Self-closing tag <graphics type='spice' autoport='yes'/>
+                    let end_idx = start_idx + rel_end + "/>".len();
+                    let open_tag = &new_xml[start_idx..end_idx];
+                    // Convert self-closing tag to open/close tag with optimized children
+                    let open_tag_clean = open_tag.trim_end_matches("/>").trim_end_matches('/');
+                    let optimized_block = format!(
+                        "{}>\n      <listen type='address'/>\n      <image compression='lz'/>\n      <streaming mode='off'/>\n    </graphics>",
+                        open_tag_clean
+                    );
+                    new_xml.replace_range(start_idx..end_idx, &optimized_block);
+                }
+            }
+        }
+        new_xml
     } else {
         xml.to_string()
     }
@@ -1547,7 +1595,8 @@ pub fn create_vm(
     </interface>
     <graphics type='spice' autoport='yes'>
       <listen type='address'/>
-      <image compression='off'/>
+      <image compression='lz'/>
+      <streaming mode='off'/>
     </graphics>
     <video>
       <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>

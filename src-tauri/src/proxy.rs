@@ -13,6 +13,7 @@ pub async fn run_proxy_server() {
     
     while let Ok((stream, _)) = listener.accept().await {
         tokio::spawn(async move {
+            let _ = stream.set_nodelay(true);
             let target_port = std::sync::Arc::new(std::sync::atomic::AtomicU16::new(5900));
             let port_clone = target_port.clone();
             let callback = move |req: &Request, response: Response| {
@@ -56,7 +57,7 @@ pub async fn run_proxy_server() {
             };
             
             let tcp_to_ws = async {
-                let mut buf = vec![0u8; 8192];
+                let mut buf = vec![0u8; 65536];
                 loop {
                     match tcp_read.read(&mut buf).await {
                         Ok(0) => break,
