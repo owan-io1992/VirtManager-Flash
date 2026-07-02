@@ -15,7 +15,7 @@ interface VmStatusTabProps {
     }[];
   };
   cpuUsage: { [name: string]: number };
-  theme: "dark" | "light";
+  theme: "dark" | "light" | "sketch";
   lang: "zh" | "en";
   guestAgentAvailable: boolean;
   t: (key: TranslationKey) => string;

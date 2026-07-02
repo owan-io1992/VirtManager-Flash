@@ -5,7 +5,7 @@ import { TranslationKey } from "../translations";
 
 interface VmSnapshotsTabProps {
   selectedVm: DomainItem;
-  theme: "dark" | "light";
+  theme: "dark" | "light" | "sketch";
   lang: "zh" | "en";
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
 }

@@ -625,3 +625,196 @@
 .light-theme .mac-copy-btn:hover {
   color: #0072FF !important;
 }
+
+/* Sketch Theme Overrides (Warm Pencil Sketch & Paper Style) */
+.sketch-theme .settings-group-title {
+  border-bottom-color: rgba(61, 59, 58, 0.15);
+  color: #7A7571;
+  font-weight: 600;
+}
+
+.sketch-theme .form-label {
+  color: #3D3B3A;
+  font-weight: 500;
+}
+
+.sketch-theme .form-hint {
+  color: #7A7571;
+}
+
+.sketch-theme .form-input {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+  box-shadow: inset 1px 1px 3px rgba(61, 59, 58, 0.05);
+}
+
+.sketch-theme .form-input:focus {
+  border-color: #B45309;
+}
+
+.sketch-theme .form-select {
+  background-color: #FAF6F3;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%233D3B3A'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+}
+
+.sketch-theme .form-select option {
+  background: #FAF6F3;
+  color: #3D3B3A;
+}
+
+.sketch-theme .form-checkbox {
+  accent-color: #B45309;
+}
+
+.sketch-theme .settings-volumes-title {
+  color: #3D3B3A;
+}
+
+.sketch-theme .settings-table-wrapper {
+  border: 1.5px solid #3D3B3A;
+  box-shadow: 2px 2px 0px rgba(61, 59, 58, 0.1);
+}
+
+.sketch-theme .settings-table th {
+  background: rgba(61, 59, 58, 0.05);
+  color: #3D3B3A;
+  border-bottom: 1.5px solid #3D3B3A;
+}
+
+.sketch-theme .settings-table td {
+  border-bottom: 1px solid rgba(61, 59, 58, 0.1);
+  color: #3D3B3A;
+}
+
+.sketch-theme .volume-search-input {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+}
+
+.sketch-theme .volume-search-input:focus {
+  border-color: #B45309;
+  box-shadow: 2px 2px 0px rgba(180, 83, 9, 0.15);
+}
+
+.sketch-theme .vm-settings-toggle-group {
+  background: rgba(61, 59, 58, 0.05);
+  border: 1.5px solid #3D3B3A;
+}
+
+.sketch-theme .btn-toggle-mode {
+  color: #7A7571;
+}
+
+.sketch-theme .btn-toggle-mode.active {
+  background: rgba(180, 83, 9, 0.1);
+  color: #B45309;
+}
+
+.sketch-theme .vm-settings-nav-item {
+  color: #7A7571;
+}
+
+.sketch-theme .vm-settings-nav-item:hover {
+  background: rgba(61, 59, 58, 0.04);
+  color: #3D3B3A;
+}
+
+.sketch-theme .vm-settings-nav-item.active {
+  background: rgba(180, 83, 9, 0.08);
+  border-left-color: #B45309;
+  color: #B45309;
+}
+
+.sketch-theme .vm-settings-content {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  box-shadow: 3px 3px 0px rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .settings-subtabs {
+  border-bottom-color: rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .settings-subtab {
+  color: #7A7571;
+}
+
+.sketch-theme .settings-subtab.active {
+  color: #B45309;
+  border-bottom-color: #B45309;
+}
+
+.sketch-theme .vm-settings-state {
+  color: #7A7571;
+}
+
+.sketch-theme .vm-settings-footer {
+  background: #FAF6F3;
+  border-top: 1.5px solid #3D3B3A;
+}
+
+.sketch-theme .btn-reset-settings {
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+  background: #FAF6F3;
+  box-shadow: 2px 2px 0px rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .btn-reset-settings:hover:not(:disabled) {
+  background: #FFF;
+  color: #B45309;
+  border-color: #B45309;
+}
+
+.sketch-theme .btn-save-settings {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+  box-shadow: 2px 2px 0px rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .btn-save-settings:hover:not(:disabled) {
+  background: #FFF;
+  color: #B45309;
+  border-color: #B45309;
+  box-shadow: 3px 3px 0px rgba(180, 83, 9, 0.2);
+}
+
+.sketch-theme .device-card {
+  border: 1.5px solid #3D3B3A;
+  background: rgba(61, 59, 58, 0.02);
+  box-shadow: 2px 2px 0px rgba(61, 59, 58, 0.1);
+}
+
+.sketch-theme .device-card-title {
+  color: #3D3B3A;
+}
+
+.sketch-theme .device-card-badge {
+  color: #B45309;
+  background: rgba(180, 83, 9, 0.08);
+  border: 1px solid rgba(180, 83, 9, 0.2);
+}
+
+.sketch-theme .xml-editor {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+}
+
+.sketch-theme .xml-editor:focus {
+  border-color: #B45309;
+}
+
+.sketch-theme .mac-copy-btn {
+  color: #7A7571;
+}
+
+.sketch-theme .mac-copy-btn:hover {
+  color: #B45309 !important;
+}
+

@@ -410,3 +410,160 @@
   color: #0F172A;
 }
 
+/* Sketch Theme Overrides (Warm Pencil Sketch & Paper Style) */
+.sketch-theme .wizard-overlay {
+  background: rgba(61, 59, 58, 0.4);
+}
+
+.sketch-theme .wizard-modal {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  box-shadow: 6px 6px 0px rgba(61, 59, 58, 0.15);
+  border-radius: 12px;
+}
+
+.sketch-theme .wizard-header {
+  border-bottom: 1.5px solid #3D3B3A;
+}
+
+.sketch-theme .wizard-title {
+  color: #3D3B3A;
+}
+
+.sketch-theme .wizard-close-btn {
+  color: #7A7571;
+}
+
+.sketch-theme .wizard-close-btn:hover {
+  color: #B45309;
+  background: rgba(61, 59, 58, 0.04);
+}
+
+.sketch-theme .wizard-step-circle {
+  background: rgba(61, 59, 58, 0.04);
+  border: 1.5px solid #3D3B3A;
+  color: #7A7571;
+}
+
+.sketch-theme .wizard-step-item.active .wizard-step-circle {
+  background: #B45309;
+  border-color: #B45309;
+  color: #FFF;
+}
+
+.sketch-theme .wizard-step-item.done .wizard-step-circle {
+  background: #3D3B3A;
+  border-color: #3D3B3A;
+  color: #FFF;
+}
+
+.sketch-theme .wizard-step-label {
+  color: #7A7571;
+}
+
+.sketch-theme .wizard-step-item.active .wizard-step-label {
+  color: #B45309;
+  font-weight: 600;
+}
+
+.sketch-theme .wizard-step-item.done .wizard-step-label {
+  color: #3D3B3A;
+}
+
+.sketch-theme .wizard-step-line {
+  background: rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .wizard-error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1.5px solid #EF4444;
+  color: #EF4444;
+}
+
+.sketch-theme .wizard-input-unit-row {
+  border: 1.5px solid #3D3B3A;
+  box-shadow: inset 1px 1px 3px rgba(61, 59, 58, 0.05);
+}
+
+.sketch-theme .wizard-input-unit-row .wizard-num-input {
+  background: #FAF6F3;
+  color: #3D3B3A;
+}
+
+.sketch-theme .wizard-unit-badge {
+  background: rgba(61, 59, 58, 0.05);
+  border-left: 1.5px solid #3D3B3A;
+  color: #7A7571;
+}
+
+.sketch-theme .wizard-unit-select {
+  background: rgba(61, 59, 58, 0.05);
+  border-left: 1.5px solid #3D3B3A;
+  color: #7A7571;
+}
+
+.sketch-theme .wizard-unit-select option {
+  background: #FAF6F3;
+  color: #3D3B3A;
+}
+
+.sketch-theme .wizard-input-unit-row:focus-within {
+  border-color: #B45309;
+}
+
+.sketch-theme .wizard-summary-card {
+  background: rgba(61, 59, 58, 0.02);
+  border: 1.5px solid #3D3B3A;
+  box-shadow: 2px 2px 0px rgba(61, 59, 58, 0.1);
+}
+
+.sketch-theme .wizard-summary-title {
+  color: #7A7571;
+}
+
+.sketch-theme .wizard-summary-row {
+  border-bottom: 1.5px solid rgba(61, 59, 58, 0.1);
+  color: #7A7571;
+}
+
+.sketch-theme .wizard-summary-val {
+  color: #3D3B3A;
+}
+
+.sketch-theme .wizard-iso-empty {
+  color: #7A7571;
+}
+
+.sketch-theme .wizard-footer {
+  border-top: 1.5px solid #3D3B3A;
+}
+
+.sketch-theme .btn-primary {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+  box-shadow: 2px 2px 0px rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .btn-primary:hover:not(:disabled) {
+  background: #FFF;
+  color: #B45309;
+  border-color: #B45309;
+  box-shadow: 3px 3px 0px rgba(180, 83, 9, 0.25);
+}
+
+.sketch-theme .btn-secondary {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+  box-shadow: 2px 2px 0px rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .btn-secondary:hover:not(:disabled) {
+  background: #FFF;
+  color: #B45309;
+  border-color: #B45309;
+  box-shadow: 3px 3px 0px rgba(180, 83, 9, 0.25);
+}
+
+

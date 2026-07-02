@@ -449,5 +449,148 @@
   border-color: rgba(239, 68, 68, 0.4);
 }
 
+/* Sketch Theme Overrides (Warm Pencil Sketch & Paper Style) */
+.sketch-theme .preferences-modal-overlay {
+  background: rgba(61, 59, 58, 0.4);
+}
+
+.sketch-theme .preferences-modal {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  box-shadow: 6px 6px 0px rgba(61, 59, 58, 0.15);
+  border-radius: 12px;
+}
+
+.sketch-theme .form-value-text {
+  color: #3D3B3A;
+}
+
+.sketch-theme .preferences-info-text {
+  color: #7A7571;
+}
+
+.sketch-theme .system-resource-val {
+  color: #B45309;
+}
+
+.sketch-theme .preferences-modal-header {
+  border-bottom: 1.5px solid #3D3B3A;
+}
+
+.sketch-theme .preferences-modal-title {
+  color: #3D3B3A;
+}
+
+.sketch-theme .btn-close-modal {
+  color: #7A7571;
+}
+
+.sketch-theme .btn-close-modal:hover {
+  color: #B45309;
+}
+
+.sketch-theme .preferences-modal-sidebar {
+  border-right: 1.5px solid #3D3B3A;
+  background: rgba(61, 59, 58, 0.02);
+}
+
+.sketch-theme .preferences-menu-item {
+  color: #7A7571 !important;
+}
+
+.sketch-theme .preferences-menu-item:hover {
+  background: rgba(61, 59, 58, 0.04) !important;
+  color: #3D3B3A !important;
+}
+
+.sketch-theme .preferences-menu-item.active {
+  background: rgba(180, 83, 9, 0.08) !important;
+  color: #B45309 !important;
+  box-shadow: inset 3px 0 0 #B45309;
+}
+
+.sketch-theme .settings-sub-list {
+  border: 1.5px solid #3D3B3A;
+  background: rgba(61, 59, 58, 0.02);
+}
+
+.sketch-theme .settings-sub-item {
+  border-bottom: 1.5px solid rgba(61, 59, 58, 0.1);
+  color: #3D3B3A;
+}
+
+.sketch-theme .settings-sub-item:hover {
+  background: rgba(61, 59, 58, 0.04);
+}
+
+.sketch-theme .settings-sub-item.active {
+  background: rgba(180, 83, 9, 0.08);
+  border-left: 3px solid #B45309;
+}
+
+.sketch-theme .settings-sub-details {
+  border: 1.5px solid #3D3B3A;
+  background: rgba(61, 59, 58, 0.01);
+}
+
+.sketch-theme .preferences-modal-footer {
+  border-top: 1.5px solid #3D3B3A;
+}
+
+.sketch-theme .spec-item {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  box-shadow: 2px 2px 0px rgba(61, 59, 58, 0.1);
+}
+
+.sketch-theme .spec-label {
+  color: #7A7571;
+}
+
+.sketch-theme .spec-value {
+  color: #3D3B3A;
+}
+
+.sketch-theme .settings-toast {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  box-shadow: 4px 4px 0px rgba(61, 59, 58, 0.15);
+  color: #3D3B3A;
+}
+
+.sketch-theme .settings-toast.success {
+  border-left: 4px solid #B45309;
+}
+
+.sketch-theme .settings-toast.error {
+  border-left: 4px solid #EF4444;
+}
+
+.sketch-theme .settings-toast.success .toast-icon {
+  color: #B45309;
+}
+
+.sketch-theme .nic-info-tooltip {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  color: #3D3B3A;
+  box-shadow: 4px 4px 0px rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .footer-toast.success {
+  background: #FAF6F3;
+  border: 1.5px solid #B45309;
+  color: #B45309;
+  box-shadow: 4px 4px 0px rgba(61, 59, 58, 0.15);
+}
+
+.sketch-theme .footer-toast.error {
+  background: #FAF6F3;
+  border: 1.5px solid #EF4444;
+  color: #EF4444;
+  box-shadow: 4px 4px 0px rgba(61, 59, 58, 0.15);
+}
+
+
 
 

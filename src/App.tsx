@@ -48,8 +48,8 @@ function App() {
     }, 5000);
   };
   
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    return (localStorage.getItem("virtmanager-flash-theme") as "dark" | "light") || "dark";
+  const [theme, setTheme] = useState<"dark" | "light" | "sketch">(() => {
+    return (localStorage.getItem("virtmanager-flash-theme") as "dark" | "light" | "sketch") || "sketch";
   });
 
   const [lang, setLang] = useState<"zh" | "en">(() => {

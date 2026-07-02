@@ -158,3 +158,40 @@ body {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* Sketch Theme (Warm Pencil Sketch & Paper Style) */
+.sketch-theme {
+  color: #3D3B3A;
+  background-color: #FAF6F3;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(235, 225, 215, 0.6) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(180, 83, 9, 0.05) 0px, transparent 50%);
+}
+
+.sketch-theme h1 {
+  background: linear-gradient(135deg, #3D3B3A 30%, #B45309 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sketch-theme .context-menu {
+  background: #FAF6F3;
+  border: 1.5px solid #3D3B3A;
+  box-shadow: 4px 4px 0px rgba(61, 59, 58, 0.15);
+  border-radius: 6px;
+}
+
+.sketch-theme .context-menu-item {
+  color: #3D3B3A;
+  border-radius: 4px;
+}
+
+.sketch-theme .context-menu-item:hover:not(:disabled) {
+  background: rgba(180, 83, 9, 0.12);
+  color: #B45309;
+}
+
+.sketch-theme .context-menu-separator {
+  background: rgba(61, 59, 58, 0.12);
+}
+

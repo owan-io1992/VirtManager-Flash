@@ -3,8 +3,8 @@ import { TranslationKey } from "../translations";
 interface PreferencesModalProps {
   showPrefModal: boolean;
   setShowPrefModal: (show: boolean) => void;
-  theme: "dark" | "light";
-  setTheme: (theme: "dark" | "light") => void;
+  theme: "dark" | "light" | "sketch";
+  setTheme: (theme: "dark" | "light" | "sketch") => void;
   lang: "zh" | "en";
   setLang: (lang: "zh" | "en") => void;
   autoconnect: boolean;
@@ -40,8 +40,9 @@ export const PreferencesModal = ({
               <select
                 className="form-select"
                 value={theme}
-                onChange={(e) => setTheme(e.target.value as "dark" | "light")}
+                onChange={(e) => setTheme(e.target.value as "dark" | "light" | "sketch")}
               >
+                <option value="sketch">{t("pref_theme_sketch")}</option>
                 <option value="dark">{t("pref_theme_dark")}</option>
                 <option value="light">{t("pref_theme_light")}</option>
               </select>
