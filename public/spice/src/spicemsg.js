@@ -945,22 +945,6 @@ SpiceMsgCursorSet.prototype =
 }
 
 
-function SpiceMsgCursorInvalOne(a, at)
-{
-    this.from_buffer(a, at);
-}
-
-SpiceMsgCursorInvalOne.prototype =
-{
-    from_buffer: function(a, at)
-    {
-        at = at || 0;
-        var dv = new SpiceDataView(a);
-        this.unique = dv.getUint64(at, true); at += 8;
-        return at;
-    },
-}
-
 function SpiceMsgcMousePosition(sc, e)
 {
     // FIXME - figure out how to correctly compute display_id
@@ -1368,7 +1352,6 @@ export {
   SpiceMsgPlaybackMode,
   SpiceMsgPlaybackStart,
   SpiceMsgCursorSet,
-  SpiceMsgCursorInvalOne,
   SpiceMsgcMousePosition,
   SpiceMsgcMouseMotion,
   SpiceMsgcMousePress,

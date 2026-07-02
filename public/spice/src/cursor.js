@@ -24,7 +24,6 @@ import { DEBUG } from './utils.js';
 import {
   SpiceMsgCursorInit,
   SpiceMsgCursorSet,
-  SpiceMsgCursorInvalOne,
 } from './spicemsg.js';
 import { SpiceSimulateCursor } from './simulatecursor.js';
 import { SpiceConn } from './spiceconn.js';
@@ -36,7 +35,6 @@ import { SpiceConn } from './spiceconn.js';
 function SpiceCursorConn()
 {
     SpiceConn.apply(this, arguments);
-    this.cursor_cache = {};
 }
 
 SpiceCursorConn.prototype = Object.create(SpiceConn.prototype);
@@ -56,13 +54,7 @@ SpiceCursorConn.prototype.process_channel_message = function(msg)
             this.parent.inputs.mousex = cursor_init.position.x;
             this.parent.inputs.mousey = cursor_init.position.y;
         }
-        // The init message carries the initial (default) cursor - render
-        // and cache it just like a regular SPICE_MSG_CURSOR_SET, otherwise
-        // the very first cursor shape is silently dropped and never shown
-        // again once the guest starts referencing it via FROM_CACHE.
-        if (cursor_init.cursor.header)
-            this.handle_cursor(cursor_init.cursor);
-
+        // FIXME - We don't handle most of the parameters here...
         return true;
     }
 
@@ -76,7 +68,16 @@ SpiceCursorConn.prototype.process_channel_message = function(msg)
             return true;
         }
 
-        this.handle_cursor(cursor_set.cursor);
+        if (cursor_set.flags > 0)
+            this.log_warn("FIXME: No support for cursor flags " + cursor_set.flags);
+
+        if (cursor_set.cursor.header.type != Constants.SPICE_CURSOR_TYPE_ALPHA)
+        {
+            this.log_warn("FIXME: No support for cursor type " + cursor_set.cursor.header.type);
+            return false;
+        }
+
+        this.set_cursor(cursor_set.cursor);
 
         return true;
     }
@@ -109,46 +110,18 @@ SpiceCursorConn.prototype.process_channel_message = function(msg)
 
     if (msg.type == Constants.SPICE_MSG_CURSOR_INVAL_ONE)
     {
-        var inval_one = new SpiceMsgCursorInvalOne(msg.data);
-        DEBUG > 1 && console.log("SpiceMsgCursorInvalOne");
-        delete this.cursor_cache[inval_one.unique];
+        this.known_unimplemented(msg.type, "Cursor Inval One");
         return true;
     }
 
     if (msg.type == Constants.SPICE_MSG_CURSOR_INVAL_ALL)
     {
         DEBUG > 1 && console.log("SpiceMsgCursorInvalAll");
-        this.cursor_cache = {};
+        // FIXME - There may be something useful to do here...
         return true;
     }
 
     return false;
-}
-
-SpiceCursorConn.prototype.handle_cursor = function(cursor)
-{
-    if (cursor.flags & Constants.SPICE_CURSOR_FLAGS_FROM_CACHE)
-    {
-        var cached = this.cursor_cache[cursor.header.unique];
-        if (!cached)
-        {
-            this.log_warn("Cursor cache miss for id " + cursor.header.unique);
-            return;
-        }
-        this.set_cursor(cached);
-        return;
-    }
-
-    if (cursor.header.type != Constants.SPICE_CURSOR_TYPE_ALPHA)
-    {
-        this.log_warn("FIXME: No support for cursor type " + cursor.header.type);
-        return;
-    }
-
-    if (cursor.flags & Constants.SPICE_CURSOR_FLAGS_CACHE_ME)
-        this.cursor_cache[cursor.header.unique] = cursor;
-
-    this.set_cursor(cursor);
 }
 
 SpiceCursorConn.prototype.set_cursor = function(cursor)

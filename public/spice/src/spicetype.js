@@ -448,13 +448,8 @@ SpiceCursor.prototype =
         {
             this.header = new SpiceCursorHeader;
             at = this.header.from_dv(dv, at, mb);
-            // A FROM_CACHE cursor only carries the header (the cache
-            // lookup key is header.unique) - no pixel data follows.
-            if (!(this.flags & Constants.SPICE_CURSOR_FLAGS_FROM_CACHE))
-            {
-                this.data   = mb.slice(at);
-                at += this.data.byteLength;
-            }
+            this.data   = mb.slice(at);
+            at += this.data.byteLength;
         }
         return at;
     },
