@@ -241,7 +241,10 @@ function App() {
       // Filter out any selected names that no longer exist
       setSelectedVmNames((prev) => {
         const next = prev.filter((name) => list.some((d) => d.name === name));
-        if (next.length === 0 && list.length > 0) {
+        // Only auto-reselect when a previously selected VM disappeared from the
+        // list (e.g. deleted) - not when the user intentionally cleared the
+        // selection down to zero.
+        if (prev.length > 0 && next.length === 0 && list.length > 0) {
           return [list[0].name];
         }
         if (prev.length === next.length && prev.every((val, index) => val === next[index])) {
@@ -770,7 +773,6 @@ function App() {
           </div>
         ) : (
           <div className="details-placeholder">
-            <div className="placeholder-icon">🚢</div>
             <h2>{t("select_env_title")}</h2>
             <p>{t("select_env_desc")}</p>
           </div>

@@ -36,13 +36,6 @@
   flex-grow: 1;
 }
 
-.placeholder-icon {
-  font-size: 4rem;
-  margin-bottom: 1.5rem;
-  opacity: 0.3;
-  animation: float 4s ease-in-out infinite;
-}
-
 /* Top Batch Actions Bar */
 .batch-actions-bar {
   display: flex;
