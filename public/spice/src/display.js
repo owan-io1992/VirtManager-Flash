@@ -36,14 +36,22 @@ import { convert_spice_bitmap_to_web } from './bitmap.js';
 **           and then use drawImage to put it onto the target,
 **           as drawImage does alpha.
 **--------------------------------------------------------------------------*/
+var reusable_canvas = null;
+var reusable_context = null;
+
 function putImageDataWithAlpha(context, d, x, y)
 {
-    var c = document.createElement("canvas");
-    var t = c.getContext("2d");
-    c.setAttribute('width', d.width);
-    c.setAttribute('height', d.height);
-    t.putImageData(d, 0, 0);
-    context.drawImage(c, x, y, d.width, d.height);
+    if (d.width === 0 || d.height === 0) return;
+    if (!reusable_canvas) {
+        reusable_canvas = document.createElement("canvas");
+        reusable_context = reusable_canvas.getContext("2d");
+    }
+    if (reusable_canvas.width < d.width || reusable_canvas.height < d.height) {
+        reusable_canvas.width = Math.max(reusable_canvas.width, d.width);
+        reusable_canvas.height = Math.max(reusable_canvas.height, d.height);
+    }
+    reusable_context.putImageData(d, 0, 0);
+    context.drawImage(reusable_canvas, 0, 0, d.width, d.height, x, y, d.width, d.height);
 }
 
 /*----------------------------------------------------------------------------
