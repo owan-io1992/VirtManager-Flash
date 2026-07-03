@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { DomainItem, SnapshotItem } from "../types";
 import { TranslationKey } from "../translations";
@@ -10,7 +10,7 @@ interface VmSnapshotsTabProps {
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
 }
 
-export const VmSnapshotsTab = ({
+const VmSnapshotsTabComponent = ({
   selectedVm,
   theme: _theme,
   lang: _lang,
@@ -350,3 +350,14 @@ export const VmSnapshotsTab = ({
     </div>
   );
 };
+
+const vmSnapshotsTabPropsAreEqual = (prev: VmSnapshotsTabProps, next: VmSnapshotsTabProps) => {
+  return (
+    prev.selectedVm.name === next.selectedVm.name &&
+    prev.theme === next.theme &&
+    prev.lang === next.lang &&
+    prev.t === next.t
+  );
+};
+
+export const VmSnapshotsTab = memo(VmSnapshotsTabComponent, vmSnapshotsTabPropsAreEqual);

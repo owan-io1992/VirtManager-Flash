@@ -990,7 +990,8 @@ function App() {
                   ) : activeTab === "console" ? (
                     // Console Tab (Modular Component)
                     <VmConsoleTab
-                      selectedVm={selectedVm}
+                      vmName={selectedVm.name}
+                      vmState={selectedVm.state}
                       spiceLoading={spiceLoading}
                       spiceError={spiceError}
                       spicePort={spicePort}
@@ -1038,71 +1039,81 @@ function App() {
       </main>
 
       {/* Context Menu (Modular Component) */}
-      <VmContextMenu
-        contextMenu={contextMenu}
-        setContextMenu={setContextMenu}
-        folders={folders}
-        canStart={canStart}
-        canPause={canPause}
-        canResume={canResume}
-        canReboot={canReboot}
-        canShutdown={canShutdown}
-        canForceStop={canForceStop}
-        canReset={canReset}
-        canDelete={canDelete}
-        selectedVmNames={selectedVmNames}
-        t={t}
-        handleBatchAction={handleBatchAction}
-        moveSelectedVmsToFolder={moveSelectedVmsToFolder}
-        onDeleted={() => { setSelectedVmNames([]); fetchDomains(true); }}
-        showGlobalToast={showGlobalToast}
-      />
+      {contextMenu && (
+        <VmContextMenu
+          contextMenu={contextMenu}
+          setContextMenu={setContextMenu}
+          folders={folders}
+          canStart={canStart}
+          canPause={canPause}
+          canResume={canResume}
+          canReboot={canReboot}
+          canShutdown={canShutdown}
+          canForceStop={canForceStop}
+          canReset={canReset}
+          canDelete={canDelete}
+          selectedVmNames={selectedVmNames}
+          t={t}
+          handleBatchAction={handleBatchAction}
+          moveSelectedVmsToFolder={moveSelectedVmsToFolder}
+          onDeleted={() => { setSelectedVmNames([]); fetchDomains(true); }}
+          showGlobalToast={showGlobalToast}
+        />
+      )}
 
       {/* App Preferences Modal */}
-      <PreferencesModal
-        showPrefModal={showPrefModal}
-        setShowPrefModal={setShowPrefModal}
-        theme={theme}
-        setTheme={setTheme}
-        lang={lang}
-        setLang={setLang}
-        autoconnect={autoconnect}
-        setAutoconnect={setAutoconnect}
-        metricsEnabled={metricsEnabled}
-        setMetricsEnabled={setMetricsEnabled}
-        t={t}
-      />
+      {showPrefModal && (
+        <PreferencesModal
+          showPrefModal={showPrefModal}
+          setShowPrefModal={setShowPrefModal}
+          theme={theme}
+          setTheme={setTheme}
+          lang={lang}
+          setLang={setLang}
+          autoconnect={autoconnect}
+          setAutoconnect={setAutoconnect}
+          metricsEnabled={metricsEnabled}
+          setMetricsEnabled={setMetricsEnabled}
+          t={t}
+        />
+      )}
 
       {/* Create VM Wizard */}
-      <CreateVmWizard
-        show={showCreateVmWizard}
-        onClose={() => setShowCreateVmWizard(false)}
-        storagePools={storagePools}
-        t={t}
-        onCreated={() => fetchDomains()}
-      />
+      {showCreateVmWizard && (
+        <CreateVmWizard
+          show={showCreateVmWizard}
+          onClose={() => setShowCreateVmWizard(false)}
+          storagePools={storagePools}
+          t={t}
+          onCreated={() => fetchDomains()}
+        />
+      )}
 
       {/* App Resource Manager Modal */}
-      <ResourceManagerModal
-        showResModal={showResModal}
-        setShowResModal={setShowResModal}
-        lang={lang}
-        libvirtUri={libvirtUri}
-        setLibvirtUri={setLibvirtUri}
-        systemResources={systemResources}
-        networks={networks}
-        storagePools={storagePools}
-        t={t}
-        onRefresh={() => { fetchNetworks(); fetchStoragePools(); fetchDomains(); }}
-      />
+      {showResModal && (
+        <ResourceManagerModal
+          showResModal={showResModal}
+          setShowResModal={setShowResModal}
+          lang={lang}
+          libvirtUri={libvirtUri}
+          setLibvirtUri={setLibvirtUri}
+          systemResources={systemResources}
+          networks={networks}
+          storagePools={storagePools}
+          t={t}
+          onRefresh={() => { fetchNetworks(); fetchStoragePools(); fetchDomains(); }}
+        />
+      )}
 
       {/* About Application Modal */}
-      <AboutModal
-        showAboutModal={showAboutModal}
-        setShowAboutModal={setShowAboutModal}
-        lang={lang}
-        t={t}
-      />
+      {showAboutModal && (
+        <AboutModal
+          showAboutModal={showAboutModal}
+          setShowAboutModal={setShowAboutModal}
+          lang={lang}
+          t={t}
+        />
+      )}
     </div>
   );
 }

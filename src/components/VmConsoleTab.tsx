@@ -1,8 +1,9 @@
-import { DomainItem } from "../types";
+import React from "react";
 import { TranslationKey } from "../translations";
 
 interface VmConsoleTabProps {
-  selectedVm: DomainItem;
+  vmName: string;
+  vmState: number;
   spiceLoading: boolean;
   spiceError: string | null;
   spicePort: number | null;
@@ -11,8 +12,9 @@ interface VmConsoleTabProps {
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
 }
 
-export const VmConsoleTab = ({
-  selectedVm,
+export const VmConsoleTab = React.memo(({
+  vmName: _vmName,
+  vmState,
   spiceLoading,
   spiceError,
   spicePort,
@@ -26,7 +28,7 @@ export const VmConsoleTab = ({
 
   return (
     <div className="console-panel">
-      {selectedVm.state === 1 ? (
+      {vmState === 1 ? (
         <div className="graphic-console-screen" style={{ width: "100%", height: "100%", padding: 0 }}>
           {spiceLoading && !isGlMode && !isVncMode && (
             <div className="spice-loading-container" style={{ padding: "3rem", textAlign: "center" }}>
@@ -107,4 +109,4 @@ export const VmConsoleTab = ({
       )}
     </div>
   );
-};
+});

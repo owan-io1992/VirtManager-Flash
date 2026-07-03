@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { DomainItem, NetworkItem, SystemResources, VmSettings, DiskInfo, NicInfo, StoragePoolItem, parseSizeToGb, parseSizeAndUnit } from "../types";
 import { TranslationKey } from "../translations";
@@ -73,7 +73,7 @@ const Field = ({ label, hint, children }: { label: string; hint?: string; childr
   </div>
 );
 
-export const VmSettingsTab = ({
+const VmSettingsTabComponent = ({
   selectedVm,
   networks,
   storagePools,
@@ -1211,3 +1211,17 @@ export const VmSettingsTab = ({
     </div>
   );
 };
+
+const vmSettingsTabPropsAreEqual = (prev: VmSettingsTabProps, next: VmSettingsTabProps) => {
+  return (
+    prev.selectedVm.name === next.selectedVm.name &&
+    prev.selectedVm.state === next.selectedVm.state &&
+    prev.networks === next.networks &&
+    prev.storagePools === next.storagePools &&
+    prev.systemResources === next.systemResources &&
+    prev.t === next.t &&
+    prev.onSaveSuccess === next.onSaveSuccess
+  );
+};
+
+export const VmSettingsTab = memo(VmSettingsTabComponent, vmSettingsTabPropsAreEqual);

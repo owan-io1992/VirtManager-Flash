@@ -4,25 +4,23 @@ pub mod storage;
 pub mod proxy;
 pub mod domains;
 
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, Arc};
 use std::ops::Deref;
 use virt::connect::Connect;
 
 pub static LIBVIRT_URI: Mutex<Option<String>> = Mutex::new(None);
 
-// Cached libvirt connection shared by all commands. libvirt's C API is
-// thread-safe; the Mutex both guards the Option and serializes command access
-// (commands previously ran serialized on the main thread anyway). Reusing one
-// connection avoids a full open/close handshake per command — critical for
-// remote (SSH) URIs where reconnecting every 2s poll is prohibitively slow.
-static CONNECTION: Mutex<Option<Connect>> = Mutex::new(None);
+// Cached libvirt connection shared by all commands. Wrapped in Arc to allow
+// multiple commands to execute concurrently on different threads without
+// serializing on the global Mutex lock.
+static CONNECTION: Mutex<Option<Arc<Connect>>> = Mutex::new(None);
 
-pub struct ConnGuard(MutexGuard<'static, Option<Connect>>);
+pub struct ConnGuard(Arc<Connect>);
 
 impl Deref for ConnGuard {
     type Target = Connect;
     fn deref(&self) -> &Self::Target {
-        self.0.as_ref().unwrap()
+        &self.0
     }
 }
 
@@ -32,10 +30,12 @@ pub fn connect_libvirt() -> Result<ConnGuard, String> {
 
     if let Some(conn) = guard.as_ref() {
         if conn.is_alive().unwrap_or(false) {
-            return Ok(ConnGuard(guard));
+            return Ok(ConnGuard(conn.clone()));
         }
-        if let Some(mut stale) = guard.take() {
-            let _ = stale.close();
+        if let Some(stale) = guard.take() {
+            if let Ok(mut conn) = Arc::try_unwrap(stale) {
+                let _ = conn.close();
+            }
         }
     }
 
@@ -44,16 +44,19 @@ pub fn connect_libvirt() -> Result<ConnGuard, String> {
 
     let conn = Connect::open(Some(uri_str))
         .map_err(|e| format!("Failed to connect to libvirt at '{}': {}", uri_str, e))?;
-    *guard = Some(conn);
-    Ok(ConnGuard(guard))
+    let conn_arc = Arc::new(conn);
+    *guard = Some(conn_arc.clone());
+    Ok(ConnGuard(conn_arc))
 }
 
 // Close and drop the cached connection so the next command reconnects
 // (used when the libvirt URI changes).
 pub fn invalidate_connection() {
     let mut guard = CONNECTION.lock().unwrap_or_else(|p| p.into_inner());
-    if let Some(mut stale) = guard.take() {
-        let _ = stale.close();
+    if let Some(stale) = guard.take() {
+        if let Ok(mut conn) = Arc::try_unwrap(stale) {
+            let _ = conn.close();
+        }
     }
 }
 
