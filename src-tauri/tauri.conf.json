@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "VirtManager-Flash",
+        "title": "VirtManager-Flash - KVM 虛擬機管理器",
         "width": 800,
         "height": 600
       }

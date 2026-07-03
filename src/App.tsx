@@ -102,6 +102,15 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem("virtmanager-flash-lang", lang);
+    const updateTitle = async () => {
+      try {
+        const appWindow = getCurrentWindow();
+        await appWindow.setTitle(`VirtManager-Flash - ${t("brand_subtitle")}`);
+      } catch (err) {
+        console.error("Failed to update window title:", err);
+      }
+    };
+    updateTitle();
   }, [lang]);
 
   useEffect(() => {
