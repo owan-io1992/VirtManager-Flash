@@ -337,6 +337,20 @@
   color: #E2E8F0;
 }
 
+.spice-loading-container {
+  color: #24C6DC;
+  font-weight: 550;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(36, 198, 220, 0.2);
+  border-top-color: #24C6DC;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 .console-monitor-wrapper {
   background: rgba(36, 198, 220, 0.1);
   border: 1px solid rgba(36, 198, 220, 0.2);

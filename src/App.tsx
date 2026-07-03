@@ -363,24 +363,17 @@ function App() {
         setMetricsHistory({});
       }
 
+      // Replace (not merge) so entries for deleted VMs don't linger and
+      // permanently defeat the identity-preserving bail below
       setCpuUsage((prev) => {
-        let changed = false;
         const keys = Object.keys(nextCpuUsage);
-        for (const key of keys) {
-          if (prev[key] !== nextCpuUsage[key]) {
-            changed = true;
-            break;
-          }
+        if (
+          keys.length === Object.keys(prev).length &&
+          keys.every((key) => prev[key] === nextCpuUsage[key])
+        ) {
+          return prev;
         }
-        if (!changed) {
-          for (const key of Object.keys(prev)) {
-            if (!(key in nextCpuUsage)) {
-              changed = true;
-              break;
-            }
-          }
-        }
-        return changed ? { ...prev, ...nextCpuUsage } : prev;
+        return nextCpuUsage;
       });
       setDomains((prev) => {
         if (prev.length !== list.length) {
@@ -643,27 +636,27 @@ function App() {
     setIsCreatingFolder(false);
   }, [newFolderName]);
 
+  // State updaters must stay pure (StrictMode/concurrent rendering may re-run
+  // them), so both updates are dispatched from the event handler itself. The
+  // [folders] dep is fine for VmList's memo: a folders change re-renders it anyway.
   const handleDeleteFolder = useCallback((folderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setFolders((prev) => {
-      const targetFolder = prev.find((f) => f.id === folderId);
-      if (!targetFolder) return prev;
-      const vmsToReturn = targetFolder.vmNames;
+    const targetFolder = folders.find((f) => f.id === folderId);
+    if (!targetFolder) return;
+    const vmsToReturn = targetFolder.vmNames;
 
-      setTopLevelOrder((prevOrder) => {
-        const idx = prevOrder.indexOf(folderId);
-        const nextOrder = prevOrder.filter((x) => x !== folderId);
-        if (idx !== -1) {
-          nextOrder.splice(idx, 0, ...vmsToReturn);
-        } else {
-          nextOrder.push(...vmsToReturn);
-        }
-        return nextOrder;
-      });
-
-      return prev.filter((f) => f.id !== folderId);
+    setFolders((prev) => prev.filter((f) => f.id !== folderId));
+    setTopLevelOrder((prevOrder) => {
+      const idx = prevOrder.indexOf(folderId);
+      const nextOrder = prevOrder.filter((x) => x !== folderId);
+      if (idx !== -1) {
+        nextOrder.splice(idx, 0, ...vmsToReturn);
+      } else {
+        nextOrder.push(...vmsToReturn);
+      }
+      return nextOrder;
     });
-  }, []);
+  }, [folders]);
 
   const toggleFolderCollapse = useCallback((folderId: string) => {
     setFolders((prev) =>
@@ -701,22 +694,19 @@ function App() {
   // Context Menu Trigger Handler
   const handleContextMenu = useCallback((e: React.MouseEvent, name: string) => {
     e.preventDefault();
-    
+
     // If right-clicked item is not selected, make it the single selection
-    setSelectedVmNames((prev) => {
-      if (!prev.includes(name)) {
-        setLastSelectedName(name);
-        return [name];
-      }
-      return prev;
-    });
+    if (!selectedVmNames.includes(name)) {
+      setSelectedVmNames([name]);
+      setLastSelectedName(name);
+    }
 
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       vmName: name,
     });
-  }, []);
+  }, [selectedVmNames]);
 
   // Batch Action Handler
   const handleBatchAction = async (action: string) => {
