@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use virt::network::Network;
+use crate::domains::xml_escape;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NetworkItem {
@@ -12,6 +13,29 @@ pub struct NetworkItem {
     pub dhcp_start: String,
     pub dhcp_end: String,
     pub forwarding: String,
+}
+
+fn get_subnet_address(ip_str: &str, prefix_str: &str) -> String {
+    let prefix = prefix_str.parse::<u8>().unwrap_or(24);
+    let ip_parts: Vec<u8> = ip_str.split('.')
+        .map(|p| p.parse::<u8>().unwrap_or(0))
+        .collect();
+    if ip_parts.len() != 4 {
+        return format!("{}/{}", ip_str, prefix_str);
+    }
+    let ip_num = ((ip_parts[0] as u32) << 24) |
+                 ((ip_parts[1] as u32) << 16) |
+                 ((ip_parts[2] as u32) << 8)  |
+                 (ip_parts[3] as u32);
+    let mask = if prefix == 0 { 0 } else { !0u32 << (32 - prefix) };
+    let net_num = ip_num & mask;
+    let net_parts = [
+        ((net_num >> 24) & 0xFF) as u8,
+        ((net_num >> 16) & 0xFF) as u8,
+        ((net_num >> 8) & 0xFF) as u8,
+        (net_num & 0xFF) as u8,
+    ];
+    format!("{}.{}.{}.{}/{}", net_parts[0], net_parts[1], net_parts[2], net_parts[3], prefix)
 }
 
 #[tauri::command]
@@ -38,12 +62,8 @@ pub fn list_networks() -> Result<Vec<NetworkItem>, String> {
             .or_else(|| crate::extract_xml_tag_attr(&xml, "prefix=\"", "prefix"))
             .unwrap_or_else(|| "24".to_string());
             
-        let subnet = if let Some(ip) = ip_addr {
-            if let Some(last_dot) = ip.rfind('.') {
-                format!("{}.0/{}", &ip[..last_dot], prefix)
-            } else {
-                format!("{}/{}", ip, prefix)
-            }
+        let subnet = if let Some(ref ip) = ip_addr {
+            get_subnet_address(ip, &prefix)
         } else {
             "Disabled".to_string()
         };
@@ -113,6 +133,11 @@ pub fn delete_network(name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn create_network(name: String, subnet: String, dhcp_start: String, dhcp_end: String, forward_mode: String) -> Result<(), String> {
+    // Linux bridge interface name limit is 15 chars. "virbr-" is 6 chars, so name can be at most 9 chars.
+    if name.len() > 9 {
+        return Err("Network name is too long. To fit Linux bridge limits (15 characters), it must not exceed 9 characters.".to_string());
+    }
+
     let conn = crate::connect_libvirt()?;
 
     // Parse subnet like "192.168.100.0/24"
@@ -127,16 +152,23 @@ pub fn create_network(name: String, subnet: String, dhcp_start: String, dhcp_end
         ip_addr.to_string()
     };
 
+    let escaped_name = xml_escape(&name);
+    let escaped_forward_mode = xml_escape(&forward_mode.to_lowercase());
+    let escaped_gateway = xml_escape(&gateway);
+    let escaped_prefix = xml_escape(prefix);
+    let escaped_dhcp_start = xml_escape(&dhcp_start);
+    let escaped_dhcp_end = xml_escape(&dhcp_end);
+
     let forward_xml = if forward_mode.is_empty() || forward_mode.to_lowercase() == "isolated" {
         String::new()
     } else {
-        format!("  <forward mode='{}'/>\n", forward_mode.to_lowercase())
+        format!("  <forward mode='{}'/>\n", escaped_forward_mode)
     };
 
     let dhcp_xml = if dhcp_start.is_empty() || dhcp_end.is_empty() {
         String::new()
     } else {
-        format!("    <dhcp>\n      <range start='{}' end='{}'/>\n    </dhcp>\n", dhcp_start, dhcp_end)
+        format!("    <dhcp>\n      <range start='{}' end='{}'/>\n    </dhcp>\n", escaped_dhcp_start, escaped_dhcp_end)
     };
 
     let xml = format!(
@@ -144,7 +176,7 @@ pub fn create_network(name: String, subnet: String, dhcp_start: String, dhcp_end
          <bridge name='virbr-{}' stp='on' delay='0'/>\n  \
          <ip address='{}' prefix='{}'>\n{}\
          </ip>\n</network>",
-        name, forward_xml, name, gateway, prefix, dhcp_xml
+        escaped_name, forward_xml, escaped_name, escaped_gateway, escaped_prefix, dhcp_xml
     );
 
     let net = Network::define_xml(&conn, &xml)

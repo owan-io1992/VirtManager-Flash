@@ -108,7 +108,7 @@ fn parse_mem_info() -> (u64, u64) {
 pub fn get_system_resources() -> Result<SystemResources, String> {
     let (cpu_cores, cpu_threads) = parse_cpu_info();
     let (mem_total_kb, mem_available_kb) = parse_mem_info();
-    let os_platform = "Linux (x86_64)".to_string();
+    let os_platform = format!("Linux ({})", std::env::consts::ARCH);
     
     Ok(SystemResources {
         cpu_cores,

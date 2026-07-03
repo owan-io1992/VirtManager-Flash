@@ -3,6 +3,21 @@ use virt::domain::Domain;
 use virt::storage_pool::StoragePool;
 use virt::storage_vol::StorageVol;
 
+pub fn xml_escape(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len());
+    for c in input.chars() {
+        match c {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&apos;"),
+            _ => escaped.push(c),
+        }
+    }
+    escaped
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DomainItem {
     pub name: String,
@@ -74,8 +89,17 @@ pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, Stri
 
         if state == 1 || state == 3 {
             if include_stats {
-                // Enable balloon memory stats collection (no-op if already set)
-                let _ = dom.set_memory_stats_period(2, 0);
+                // Enable balloon memory stats collection (once per VM session/execution)
+                {
+                    static CONFIGURED_DOMAINS: std::sync::Mutex<Option<std::collections::HashSet<String>>> = std::sync::Mutex::new(None);
+                    let mut lock = CONFIGURED_DOMAINS.lock().unwrap();
+                    let set = lock.get_or_insert_with(std::collections::HashSet::new);
+                    if !set.contains(&name) {
+                        if dom.set_memory_stats_period(2, 0).is_ok() {
+                            set.insert(name.clone());
+                        }
+                    }
+                }
                 if let Ok(stats) = dom.memory_stats(0) {
                     let mut unused_balloon = 0u64; // tag 4: balloon driver free (Linux)
                     let mut usable_agent = 0u64;   // tag 8: guest agent free (Windows+agent)
@@ -252,7 +276,8 @@ pub fn delete_vm(name: String, delete_storage: bool) -> Result<(), String> {
             }
             search = &search[src_idx + 14..];
         }
-        if dom.undefine_flags(4).is_err() {
+        // 1 | 2 | 4 correspond to MANAGED_SAVE | SNAPSHOTS_METADATA | NVRAM
+        if dom.undefine_flags(1 | 2 | 4).is_err() {
             dom.undefine().map_err(|e| format!("Failed to undefine VM: {}", e))?;
         }
         for path in paths {
@@ -261,7 +286,7 @@ pub fn delete_vm(name: String, delete_storage: bool) -> Result<(), String> {
             }
         }
     } else {
-        if dom.undefine_flags(4).is_err() {
+        if dom.undefine_flags(1 | 2 | 4).is_err() {
             dom.undefine().map_err(|e| format!("Failed to undefine VM: {}", e))?;
         }
     }
@@ -325,10 +350,7 @@ pub fn get_vm_spice_port(name: String) -> Result<u16, String> {
                 if let Some(port_end) = xml[start..].find("'") {
                     let port_str = &xml[start..start + port_end];
                     if let Ok(p) = port_str.parse::<u16>() {
-                        return Ok(p);
-                    }
-                    if port_str == "-1" {
-                        return Err("SPICE_PORT_NOT_READY".to_string());
+                        return Err(format!("VNC_PORT_DETECTED:{}", p));
                     }
                 }
             }
@@ -591,9 +613,12 @@ fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_devices: &[String]) -> S
                     b = replace_attr_in_block(&b, "<source", "dev", &disk.path);
                 }
                 
-                // Update driver type based on device type (cdrom uses raw, disk uses qcow2)
-                let expected_driver_type = if is_cdrom { "raw" } else { "qcow2" };
-                b = replace_attr_in_block(&b, "<driver", "type", expected_driver_type);
+                // Update driver type based on device type, but preserve original if present
+                let existing_driver_type = get_attr_in_block(&b, "<driver", "type");
+                let expected_driver_type = existing_driver_type.unwrap_or_else(|| {
+                    if is_cdrom { "raw".to_string() } else { "qcow2".to_string() }
+                });
+                b = replace_attr_in_block(&b, "<driver", "type", &expected_driver_type);
                 
                 // Ensure <readonly/> is present for cdrom and absent for disk
                 if is_cdrom {
@@ -1515,9 +1540,14 @@ pub fn create_vm(
     let disk_path = format!("{}/{}", pool_path.trim_end_matches('/'), vol_name);
     let size_bytes = disk_size_gb * 1024 * 1024 * 1024;
 
+    let escaped_name = xml_escape(&name);
+    let escaped_vol_name = xml_escape(&vol_name);
+    let escaped_disk_path = xml_escape(&disk_path);
+    let escaped_iso_path = xml_escape(&iso_path);
+
     let vol_xml = format!(
         "<volume>\n  <name>{}</name>\n  <capacity>{}</capacity>\n  <target>\n    <format type='qcow2'/>\n  </target>\n</volume>",
-        vol_name, size_bytes
+        escaped_vol_name, size_bytes
     );
     StorageVol::create_xml(&pool, &vol_xml, 0)
         .map_err(|e| format!("Failed to create disk volume: {}", e))?;
@@ -1528,7 +1558,7 @@ pub fn create_vm(
     } else {
         format!(
             "    <disk type='file' device='cdrom'>\n      <driver name='qemu' type='raw'/>\n      <source file='{}'/>\n      <target dev='sda' bus='sata'/>\n      <readonly/>\n      <boot order='1'/>\n    </disk>",
-            iso_path
+            escaped_iso_path
         )
     };
     let disk_boot_order = if iso_path.is_empty() { 1 } else { 2 };
@@ -1581,7 +1611,6 @@ pub fn create_vm(
   <on_reboot>restart</on_reboot>
   <on_crash>destroy</on_crash>
   <devices>
-    <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
       <source file='{disk_path}'/>
@@ -1615,10 +1644,10 @@ pub fn create_vm(
     </rng>
   </devices>
 </domain>"#,
-        name = name,
+        name = escaped_name,
         memory_kb = memory_kb,
         vcpu = vcpu,
-        disk_path = disk_path,
+        disk_path = escaped_disk_path,
         cdrom_block = cdrom_block,
         disk_boot_order = disk_boot_order,
         os_firmware_attr = os_firmware_attr,
@@ -1627,9 +1656,16 @@ pub fn create_vm(
         tpm_block = tpm_block,
     );
 
-    Domain::define_xml(&conn, &domain_xml)
-        .map(|_| ())
-        .map_err(|e| format!("Failed to define VM: {}", e))
+    match Domain::define_xml(&conn, &domain_xml) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            // Cleanup: delete the created volume since definition failed
+            if let Ok(vol) = StorageVol::lookup_by_path(&conn, &disk_path) {
+                let _ = vol.delete(0);
+            }
+            Err(format!("Failed to define VM: {}", e))
+        }
+    }
 }
 
 fn extract_xml_tag_content(xml: &str, tag: &str) -> Option<String> {
@@ -1701,8 +1737,9 @@ pub fn create_snapshot(vm_name: String, snapshot_name: String, description: Opti
     let dom = Domain::lookup_by_name(&conn, &vm_name)
         .map_err(|e| format!("VM not found: {}", e))?;
         
+    let escaped_name = xml_escape(&snapshot_name);
     let desc_xml = match description {
-        Some(d) if !d.trim().is_empty() => format!("<description>{}</description>", d),
+        Some(d) if !d.trim().is_empty() => format!("<description>{}</description>", xml_escape(&d)),
         _ => "".to_string(),
     };
     
@@ -1711,7 +1748,7 @@ pub fn create_snapshot(vm_name: String, snapshot_name: String, description: Opti
   <name>{}</name>
   {}
 </domainsnapshot>"#,
-        snapshot_name, desc_xml
+        escaped_name, desc_xml
     );
     
     virt::domain_snapshot::DomainSnapshot::create_xml(&dom, &xml, 0)

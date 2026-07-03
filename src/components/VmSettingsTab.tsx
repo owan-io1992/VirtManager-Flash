@@ -8,7 +8,6 @@ interface VmSettingsTabProps {
   networks: NetworkItem[];
   storagePools: StoragePoolItem[];
   systemResources: SystemResources | null;
-  lang: "zh" | "en";
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
   onSaveSuccess?: (newName?: string) => void;
 }
@@ -79,7 +78,6 @@ export const VmSettingsTab = ({
   networks,
   storagePools,
   systemResources,
-  lang,
   t,
   onSaveSuccess,
 }: VmSettingsTabProps) => {
@@ -882,7 +880,7 @@ export const VmSettingsTab = ({
                   ))
                 }
                 <option value="__custom__">
-                  {lang === "zh" ? "< 自訂 / 新增磁碟區 >" : "< Custom / New Volume >"}
+                  {t("vm_custom_vol")}
                 </option>
               </select>
             </Field>
@@ -984,7 +982,7 @@ export const VmSettingsTab = ({
                 style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#EF4444" }}
                 onClick={() => removeNic(i)}
               >
-                {lang === "zh" ? "移除" : "Remove"}
+                {t("vm_remove")}
               </button>
             )}
           </div>
@@ -1204,7 +1202,7 @@ export const VmSettingsTab = ({
                 onClick={handleSaveXml}
                 disabled={!dirty || saving || loading || !!loadError}
               >
-                {saving ? (lang === "zh" ? "儲存中..." : "Saving...") : t("vm_settings_save")}
+                {saving ? t("vm_saving") : t("vm_settings_save")}
               </button>
             </div>
           </div>

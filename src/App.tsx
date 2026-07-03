@@ -133,6 +133,13 @@ function App() {
   const [spicePort, setSpicePort] = useState<number | null>(null);
   const [spiceError, setSpiceError] = useState<string | null>(null);
   const [spiceLoading, setSpiceLoading] = useState(false);
+  const [proxyToken, setProxyToken] = useState<string>("");
+
+  useEffect(() => {
+    invoke<string>("get_proxy_token")
+      .then((token) => setProxyToken(token))
+      .catch((err) => console.error("Failed to fetch proxy token:", err));
+  }, []);
 
   // CPU usage tracking state & ref
   const [cpuUsage, setCpuUsage] = useState<{ [name: string]: number }>({});
@@ -201,11 +208,13 @@ function App() {
   };
 
   const fetchDomains = async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(null);
-    fetchSystemResources();
-    fetchNetworks();
-    fetchStoragePools();
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+      fetchSystemResources();
+      fetchNetworks();
+      fetchStoragePools();
+    }
     try {
       const list = await invoke<DomainItem[]>("list_domains", { includeStats: metricsEnabledRef.current });
       
@@ -314,7 +323,7 @@ function App() {
         };
       });
 
-      if (metricsEnabled) {
+      if (metricsEnabledRef.current) {
         setMetricsHistory((prevHistory) => {
           const nextHistory = { ...prevHistory };
           
@@ -889,6 +898,7 @@ function App() {
                       spiceLoading={spiceLoading}
                       spiceError={spiceError}
                       spicePort={spicePort}
+                      proxyToken={proxyToken}
                       onOpenViewer={() => invoke("open_viewer", { name: selectedVm.name })}
                       t={t}
                     />
@@ -899,7 +909,6 @@ function App() {
                       networks={networks}
                       storagePools={storagePools}
                       systemResources={systemResources}
-                      lang={lang}
                       t={t}
                       onSaveSuccess={(newName?: string) => {
                         // If the VM was renamed, follow the selection to the new name

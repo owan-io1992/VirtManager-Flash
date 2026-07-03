@@ -317,15 +317,15 @@ export const CreateVmWizard = ({ show, onClose, storagePools, t, onCreated }: Cr
               {/* Disk summary card */}
               <div className="wizard-summary-card">
                 <div className="wizard-summary-row">
-                  <span>磁碟映像名稱</span>
-                  <span className="wizard-summary-val">{vmName || "（未設定）"}.qcow2</span>
+                  <span>{t("wizard_disk_image_name")}</span>
+                  <span className="wizard-summary-val">{vmName || t("wizard_summary_none")}.qcow2</span>
                 </div>
                 <div className="wizard-summary-row">
-                  <span>格式</span>
+                  <span>{t("wizard_format")}</span>
                   <span className="wizard-summary-val">qcow2</span>
                 </div>
                 <div className="wizard-summary-row">
-                  <span>容量</span>
+                  <span>{t("wizard_capacity")}</span>
                   <span className="wizard-summary-val">{diskSizeGb} GB</span>
                 </div>
               </div>
@@ -371,10 +371,10 @@ export const CreateVmWizard = ({ show, onClose, storagePools, t, onCreated }: Cr
                     >
                       <option value="">{t("wizard_iso_none")}</option>
                       {isoList
-                        .filter((iso) => !isoPool || iso.pool_name === isoPool)
+                        .filter((iso) => !isoPool || iso.pool_name === isoPool || !iso.pool_name)
                         .map((iso) => (
                           <option key={iso.path} value={iso.path}>
-                            {iso.name}
+                            {iso.name} {!iso.pool_name && " (Non-Pool)"}
                           </option>
                         ))}
                     </select>
@@ -382,7 +382,7 @@ export const CreateVmWizard = ({ show, onClose, storagePools, t, onCreated }: Cr
                 </div>
               </div>
 
-              {isoList.filter((iso) => !isoPool || iso.pool_name === isoPool).length === 0 && !isoLoading && (
+              {isoList.filter((iso) => !isoPool || iso.pool_name === isoPool || !iso.pool_name).length === 0 && !isoLoading && (
                 <div className="wizard-iso-empty">{t("wizard_iso_empty")}</div>
               )}
 
@@ -390,34 +390,34 @@ export const CreateVmWizard = ({ show, onClose, storagePools, t, onCreated }: Cr
               <div className="wizard-summary-card">
                 <div className="wizard-summary-title">{t("wizard_summary")}</div>
                 <div className="wizard-summary-row">
-                  <span>名稱</span>
+                  <span>{t("wizard_summary_name")}</span>
                   <span className="wizard-summary-val">{vmName}</span>
                 </div>
                 <div className="wizard-summary-row">
-                  <span>CPU</span>
+                  <span>{t("wizard_summary_cpu")}</span>
                   <span className="wizard-summary-val">{vcpu} vCPU</span>
                 </div>
                 <div className="wizard-summary-row">
-                  <span>記憶體</span>
+                  <span>{t("wizard_summary_memory")}</span>
                   <span className="wizard-summary-val">{memoryDisplay}</span>
                 </div>
                 <div className="wizard-summary-row">
-                  <span>磁碟</span>
+                  <span>{t("wizard_summary_disk")}</span>
                   <span className="wizard-summary-val">{diskSizeGb} GB (qcow2) — {storagePool}</span>
                 </div>
                 <div className="wizard-summary-row">
-                  <span>ISO</span>
+                  <span>{t("wizard_summary_iso")}</span>
                   <span className="wizard-summary-val">
-                    {selectedIso ? isoList.find((i) => i.path === selectedIso)?.name ?? selectedIso : "（無）"}
+                    {selectedIso ? isoList.find((i) => i.path === selectedIso)?.name ?? selectedIso : t("wizard_summary_none")}
                   </span>
                 </div>
                 <div className="wizard-summary-row">
                   <span>Secure Boot</span>
-                  <span className="wizard-summary-val">{secureBoot ? "啟用 (Enabled)" : "停用 (Disabled)"}</span>
+                  <span className="wizard-summary-val">{secureBoot ? t("wizard_summary_enabled") : t("wizard_summary_disabled")}</span>
                 </div>
                 <div className="wizard-summary-row">
                   <span>TPM 2.0</span>
-                  <span className="wizard-summary-val">{tpm ? "啟用 (Enabled)" : "停用 (Disabled)"}</span>
+                  <span className="wizard-summary-val">{tpm ? t("wizard_summary_enabled") : t("wizard_summary_disabled")}</span>
                 </div>
               </div>
             </div>

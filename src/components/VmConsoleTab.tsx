@@ -6,6 +6,7 @@ interface VmConsoleTabProps {
   spiceLoading: boolean;
   spiceError: string | null;
   spicePort: number | null;
+  proxyToken: string;
   onOpenViewer: () => void;
   t: (key: TranslationKey) => string;
 }
@@ -15,10 +16,13 @@ export const VmConsoleTab = ({
   spiceLoading,
   spiceError,
   spicePort,
+  proxyToken,
   onOpenViewer,
   t,
 }: VmConsoleTabProps) => {
   const isGlMode = spiceError === "SPICE_GL_NO_PORT";
+  const isVncMode = spiceError?.startsWith("VNC_PORT_DETECTED:") ?? false;
+  const vncPort = isVncMode ? spiceError?.split(":")[1] : null;
 
   return (
     <div className="console-panel">
@@ -52,7 +56,34 @@ export const VmConsoleTab = ({
               </button>
             </div>
           )}
-          {spiceError && !isGlMode && (
+          {isVncMode && (
+            <div style={{ padding: "3rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
+              <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>📺</div>
+              <p style={{ color: "#94A3B8", fontSize: "0.95rem", maxWidth: "420px", margin: 0 }}>
+                偵測到 VNC 顯示協定 (埠號: {vncPort})。不支援網頁 SPICE 主控台。
+              </p>
+              <p style={{ color: "#64748B", fontSize: "0.8rem", margin: 0 }}>
+                請使用 virt-viewer 或外部 VNC 用戶端進行連線。
+              </p>
+              <button
+                onClick={onOpenViewer}
+                style={{
+                  marginTop: "1rem",
+                  padding: "0.5rem 1.25rem",
+                  background: "linear-gradient(135deg, #24C6DC, #514A9D)",
+                  border: "none",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  cursor: "pointer",
+                }}
+              >
+                {t("console_open_viewer")}
+              </button>
+            </div>
+          )}
+          {spiceError && !isGlMode && !isVncMode && (
             <div className="spice-error-container" style={{ padding: "3rem", color: "#EF4444", textAlign: "center" }}>
               <p>{spiceError}</p>
               <p style={{ fontSize: "0.8rem", color: "#94A3B8" }}>{t("console_error_graphics")}</p>
@@ -60,7 +91,7 @@ export const VmConsoleTab = ({
           )}
           {spicePort && (
             <iframe
-              src={`/spice/spice_auto.html?host=127.0.0.1&port=5959&path=${spicePort}`}
+              src={`/spice/spice_auto.html?host=127.0.0.1&port=5959&path=${spicePort}?token=${proxyToken}`}
               style={{ width: "100%", height: "100%", minHeight: "500px", border: "none", borderRadius: "12px", background: "#030508" }}
               title="SPICE Console"
             />

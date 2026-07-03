@@ -53,6 +53,8 @@ export const VmContextMenu = ({
       await invoke("delete_vm", { name: contextMenu.vmName, deleteStorage });
       setContextMenu(null);
       onDeleted();
+    } catch (err: any) {
+      alert(`刪除虛擬機失敗: ${err?.toString() || "未知錯誤"}`);
     } finally {
       setDeleting(false);
       setDeleteConfirm(false);

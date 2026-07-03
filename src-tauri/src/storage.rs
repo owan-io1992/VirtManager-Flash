@@ -139,7 +139,6 @@ pub fn list_storage_pools() -> Result<Vec<StoragePoolItem>, String> {
         let mut used_gb = 0;
         
         if is_active {
-            pool.refresh(0).ok();
             if let Ok(info) = pool.get_info() {
                 size_gb = info.capacity / 1024 / 1024 / 1024;
                 let free_gb = info.available / 1024 / 1024 / 1024;

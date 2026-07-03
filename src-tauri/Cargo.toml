@@ -25,5 +25,7 @@ serde_json = "1"
 virt = { version = "0.4.3", features = ["qemu"] }
 tokio-tungstenite = "0.21"
 futures-util = "0.3"
-tokio = { version = "=1.38.0", features = ["full"] }
+# Allow patch version updates for security patches
+tokio = { version = "1.38", features = ["full"] }
+rand = "0.8"
 
