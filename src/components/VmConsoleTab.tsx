@@ -8,7 +8,7 @@ interface VmConsoleTabProps {
   spicePort: number | null;
   proxyToken: string;
   onOpenViewer: () => void;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
 }
 
 export const VmConsoleTab = ({
@@ -28,14 +28,15 @@ export const VmConsoleTab = ({
     <div className="console-panel">
       {selectedVm.state === 1 ? (
         <div className="graphic-console-screen" style={{ width: "100%", height: "100%", padding: 0 }}>
-          {spiceLoading && (
-            <div className="spice-loading-spinner" style={{ padding: "3rem", color: "#24C6DC", fontWeight: 550, textAlign: "center" }}>
+          {spiceLoading && !isGlMode && !isVncMode && (
+            <div className="spice-loading-container" style={{ padding: "3rem", textAlign: "center" }}>
+              <div className="spinner" style={{ margin: "0 auto 1rem auto" }}></div>
               {t("console_connecting")}
             </div>
           )}
           {isGlMode && (
             <div style={{ padding: "3rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
-              <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>🖥️</div>
+              <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>🕶️</div>
               <p style={{ color: "#94A3B8", fontSize: "0.95rem", maxWidth: "420px", margin: 0 }}>{t("console_gl_mode")}</p>
               <p style={{ color: "#64748B", fontSize: "0.8rem", margin: 0 }}>{t("console_gl_mode_sub")}</p>
               <button
@@ -60,7 +61,7 @@ export const VmConsoleTab = ({
             <div style={{ padding: "3rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
               <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>📺</div>
               <p style={{ color: "#94A3B8", fontSize: "0.95rem", maxWidth: "420px", margin: 0 }}>
-                {t("console_vnc_mode", { vncPort })}
+                {t("console_vnc_mode", { vncPort: vncPort ?? "" })}
               </p>
               <p style={{ color: "#64748B", fontSize: "0.8rem", margin: 0 }}>
                 {t("console_vnc_mode_sub")}

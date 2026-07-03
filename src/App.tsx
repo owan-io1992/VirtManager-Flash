@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
@@ -56,7 +56,7 @@ function App() {
     return (localStorage.getItem("virtmanager-flash-lang") as "zh" | "en") || "zh";
   });
 
-  const t = (key: TranslationKey, replaceMap?: Record<string, string | number>) => {
+  const t = useCallback((key: TranslationKey, replaceMap?: Record<string, string | number>) => {
     let text = translations[lang][key] || translations.zh[key] || "";
     if (replaceMap) {
       Object.keys(replaceMap).forEach((k) => {
@@ -64,7 +64,7 @@ function App() {
       });
     }
     return text;
-  };
+  }, [lang]);
 
   const [folders, setFolders] = useState<Folder[]>(() => {
     const saved = localStorage.getItem("virtmanager-flash-folders");
@@ -363,7 +363,25 @@ function App() {
         setMetricsHistory({});
       }
 
-      setCpuUsage((prev) => ({ ...prev, ...nextCpuUsage }));
+      setCpuUsage((prev) => {
+        let changed = false;
+        const keys = Object.keys(nextCpuUsage);
+        for (const key of keys) {
+          if (prev[key] !== nextCpuUsage[key]) {
+            changed = true;
+            break;
+          }
+        }
+        if (!changed) {
+          for (const key of Object.keys(prev)) {
+            if (!(key in nextCpuUsage)) {
+              changed = true;
+              break;
+            }
+          }
+        }
+        return changed ? { ...prev, ...nextCpuUsage } : prev;
+      });
       setDomains((prev) => {
         if (prev.length !== list.length) {
           return list;
@@ -375,6 +393,7 @@ function App() {
             a.name !== b.name ||
             a.id !== b.id ||
             a.state !== b.state ||
+            a.os_type !== b.os_type ||
             a.max_mem !== b.max_mem ||
             a.memory !== b.memory ||
             a.vcpu_count !== b.vcpu_count ||
@@ -609,7 +628,7 @@ function App() {
   }, [activeTab, selectedVmNames, selectedVmState]);
 
   // Drag and drop event handlers inside App (context menu folder updates)
-  const handleCreateFolder = () => {
+  const handleCreateFolder = useCallback(() => {
     if (!newFolderName.trim()) return;
     const folderId = `folder_${Date.now()}`;
     const newFolder: Folder = {
@@ -622,33 +641,35 @@ function App() {
     setTopLevelOrder((prev) => [...prev, folderId]);
     setNewFolderName("");
     setIsCreatingFolder(false);
-  };
+  }, [newFolderName]);
 
-  const handleDeleteFolder = (folderId: string, e: React.MouseEvent) => {
+  const handleDeleteFolder = useCallback((folderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const targetFolder = folders.find((f) => f.id === folderId);
-    if (!targetFolder) return;
+    setFolders((prev) => {
+      const targetFolder = prev.find((f) => f.id === folderId);
+      if (!targetFolder) return prev;
+      const vmsToReturn = targetFolder.vmNames;
 
-    const vmsToReturn = targetFolder.vmNames;
+      setTopLevelOrder((prevOrder) => {
+        const idx = prevOrder.indexOf(folderId);
+        const nextOrder = prevOrder.filter((x) => x !== folderId);
+        if (idx !== -1) {
+          nextOrder.splice(idx, 0, ...vmsToReturn);
+        } else {
+          nextOrder.push(...vmsToReturn);
+        }
+        return nextOrder;
+      });
 
-    setFolders((prev) => prev.filter((f) => f.id !== folderId));
-    setTopLevelOrder((prevOrder) => {
-      const idx = prevOrder.indexOf(folderId);
-      const nextOrder = prevOrder.filter((x) => x !== folderId);
-      if (idx !== -1) {
-        nextOrder.splice(idx, 0, ...vmsToReturn);
-      } else {
-        nextOrder.push(...vmsToReturn);
-      }
-      return nextOrder;
+      return prev.filter((f) => f.id !== folderId);
     });
-  };
+  }, []);
 
-  const toggleFolderCollapse = (folderId: string) => {
+  const toggleFolderCollapse = useCallback((folderId: string) => {
     setFolders((prev) =>
       prev.map((f) => (f.id === folderId ? { ...f, collapsed: !f.collapsed } : f))
     );
-  };
+  }, []);
 
   const moveSelectedVmsToFolder = (folderId: string | null) => {
     selectedVmNames.forEach((vmName) => {
@@ -678,21 +699,24 @@ function App() {
   };
 
   // Context Menu Trigger Handler
-  const handleContextMenu = (e: React.MouseEvent, name: string) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent, name: string) => {
     e.preventDefault();
     
     // If right-clicked item is not selected, make it the single selection
-    if (!selectedVmNames.includes(name)) {
-      setSelectedVmNames([name]);
-      setLastSelectedName(name);
-    }
+    setSelectedVmNames((prev) => {
+      if (!prev.includes(name)) {
+        setLastSelectedName(name);
+        return [name];
+      }
+      return prev;
+    });
 
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       vmName: name,
     });
-  };
+  }, []);
 
   // Batch Action Handler
   const handleBatchAction = async (action: string) => {

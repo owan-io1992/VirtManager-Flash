@@ -40,7 +40,7 @@ pub struct DomainItem {
 
 #[tauri::command]
 pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, String> {
-    static CONFIGURED_DOMAINS: std::sync::Mutex<Option<std::collections::HashSet<String>>> = std::sync::Mutex::new(None);
+    static CONFIGURED_DOMAINS: std::sync::Mutex<Option<std::collections::HashMap<String, u32>>> = std::sync::Mutex::new(None);
     static DEVICE_CACHE: std::sync::Mutex<Option<std::collections::HashMap<String, (u32, Vec<String>, Vec<String>)>>> = std::sync::Mutex::new(None);
 
     let include_stats = include_stats.unwrap_or(true);
@@ -93,12 +93,16 @@ pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, Stri
         if state == 1 || state == 3 {
             if include_stats {
                 // Enable balloon memory stats collection (once per VM session/execution)
-                {
+                if let Some(dom_id) = id {
                     let mut lock = CONFIGURED_DOMAINS.lock().unwrap();
-                    let set = lock.get_or_insert_with(std::collections::HashSet::new);
-                    if !set.contains(&name) {
+                    let map = lock.get_or_insert_with(std::collections::HashMap::new);
+                    let needs_setup = match map.get(&name) {
+                        Some(&cached_id) => cached_id != dom_id,
+                        None => true,
+                    };
+                    if needs_setup {
                         if dom.set_memory_stats_period(2, 0).is_ok() {
-                            set.insert(name.clone());
+                            map.insert(name.clone(), dom_id);
                         }
                     }
                 }
@@ -189,8 +193,8 @@ pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, Stri
         } else {
             // Remove name from CONFIGURED_DOMAINS if present so it will be re-set when restarted
             if let Ok(mut lock) = CONFIGURED_DOMAINS.lock() {
-                if let Some(set) = lock.as_mut() {
-                    set.remove(&name);
+                if let Some(map) = lock.as_mut() {
+                    map.remove(&name);
                 }
             }
             // Clear DEVICE_CACHE for this domain name
@@ -219,6 +223,19 @@ pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, Stri
             net_tx_bytes,
             net_tx_packets,
         });
+    }
+
+    // Clean up caches for deleted/renamed VMs that are no longer in the list
+    let active_names: std::collections::HashSet<String> = list.iter().map(|item| item.name.clone()).collect();
+    if let Ok(mut lock) = CONFIGURED_DOMAINS.lock() {
+        if let Some(map) = lock.as_mut() {
+            map.retain(|name, _| active_names.contains(name));
+        }
+    }
+    if let Ok(mut lock) = DEVICE_CACHE.lock() {
+        if let Some(cache) = lock.as_mut() {
+            cache.retain(|name, _| active_names.contains(name));
+        }
     }
 
     Ok(list)
