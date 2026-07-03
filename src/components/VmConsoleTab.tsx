@@ -60,10 +60,10 @@ export const VmConsoleTab = ({
             <div style={{ padding: "3rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
               <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>📺</div>
               <p style={{ color: "#94A3B8", fontSize: "0.95rem", maxWidth: "420px", margin: 0 }}>
-                偵測到 VNC 顯示協定 (埠號: {vncPort})。不支援網頁 SPICE 主控台。
+                {t("console_vnc_mode", { vncPort })}
               </p>
               <p style={{ color: "#64748B", fontSize: "0.8rem", margin: 0 }}>
-                請使用 virt-viewer 或外部 VNC 用戶端進行連線。
+                {t("console_vnc_mode_sub")}
               </p>
               <button
                 onClick={onOpenViewer}
@@ -89,7 +89,7 @@ export const VmConsoleTab = ({
               <p style={{ fontSize: "0.8rem", color: "#94A3B8" }}>{t("console_error_graphics")}</p>
             </div>
           )}
-          {spicePort && (
+          {spicePort && proxyToken && (
             <iframe
               src={`/spice/spice_auto.html?host=127.0.0.1&port=5959&path=${spicePort}?token=${proxyToken}`}
               style={{ width: "100%", height: "100%", minHeight: "500px", border: "none", borderRadius: "12px", background: "#030508" }}

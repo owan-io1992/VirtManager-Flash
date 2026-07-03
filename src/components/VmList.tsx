@@ -34,7 +34,7 @@ interface VmListProps {
   handleContextMenu: (e: React.MouseEvent, name: string) => void;
 }
 
-export const VmList = ({
+export const VmList = React.memo(({
   domains,
   folders,
   setFolders,
@@ -550,4 +550,6 @@ export const VmList = ({
       </div>
     </>
   );
-};
+});
+
+VmList.displayName = "VmList";

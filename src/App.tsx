@@ -364,7 +364,36 @@ function App() {
       }
 
       setCpuUsage((prev) => ({ ...prev, ...nextCpuUsage }));
-      setDomains(list);
+      setDomains((prev) => {
+        if (prev.length !== list.length) {
+          return list;
+        }
+        for (let i = 0; i < list.length; i++) {
+          const a = prev[i];
+          const b = list[i];
+          if (
+            a.name !== b.name ||
+            a.id !== b.id ||
+            a.state !== b.state ||
+            a.max_mem !== b.max_mem ||
+            a.memory !== b.memory ||
+            a.vcpu_count !== b.vcpu_count ||
+            a.cpu_time !== b.cpu_time ||
+            a.disk_rd_req !== b.disk_rd_req ||
+            a.disk_rd_bytes !== b.disk_rd_bytes ||
+            a.disk_wr_req !== b.disk_wr_req ||
+            a.disk_wr_bytes !== b.disk_wr_bytes ||
+            a.net_rx_bytes !== b.net_rx_bytes ||
+            a.net_rx_packets !== b.net_rx_packets ||
+            a.net_tx_bytes !== b.net_tx_bytes ||
+            a.net_tx_packets !== b.net_tx_packets
+          ) {
+            return list;
+          }
+        }
+        return prev;
+      });
+      setError(null);
       
       // Filter out any selected names that no longer exist
       setSelectedVmNames((prev) => {
@@ -959,6 +988,7 @@ function App() {
         handleBatchAction={handleBatchAction}
         moveSelectedVmsToFolder={moveSelectedVmsToFolder}
         onDeleted={() => { setSelectedVmNames([]); fetchDomains(true); }}
+        showGlobalToast={showGlobalToast}
       />
 
       {/* App Preferences Modal */}

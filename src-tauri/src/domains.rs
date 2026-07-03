@@ -40,6 +40,9 @@ pub struct DomainItem {
 
 #[tauri::command]
 pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, String> {
+    static CONFIGURED_DOMAINS: std::sync::Mutex<Option<std::collections::HashSet<String>>> = std::sync::Mutex::new(None);
+    static DEVICE_CACHE: std::sync::Mutex<Option<std::collections::HashMap<String, (u32, Vec<String>, Vec<String>)>>> = std::sync::Mutex::new(None);
+
     let include_stats = include_stats.unwrap_or(true);
     let conn = crate::connect_libvirt()?;
     let domains = conn.list_all_domains(0)
@@ -91,7 +94,6 @@ pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, Stri
             if include_stats {
                 // Enable balloon memory stats collection (once per VM session/execution)
                 {
-                    static CONFIGURED_DOMAINS: std::sync::Mutex<Option<std::collections::HashSet<String>>> = std::sync::Mutex::new(None);
                     let mut lock = CONFIGURED_DOMAINS.lock().unwrap();
                     let set = lock.get_or_insert_with(std::collections::HashSet::new);
                     if !set.contains(&name) {
@@ -129,29 +131,72 @@ pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, Stri
                     }
                 }
                 
-                // Get disk and network stats
-                if let Ok(xml) = dom.get_xml_desc(0) {
-                    for block in collect_blocks(&xml, "<disk", "</disk>") {
-                        if let Some(target_dev) = get_attr_in_block(&block, "<target", "dev") {
-                            if let Ok(stats) = dom.get_block_stats(&target_dev) {
-                                disk_rd_req += stats.rd_req;
-                                disk_rd_bytes += stats.rd_bytes;
-                                disk_wr_req += stats.wr_req;
-                                disk_wr_bytes += stats.wr_bytes;
-                            }
+                // Get disk and network stats with device cache
+                let mut disks = Vec::new();
+                let mut interfaces = Vec::new();
+                let mut cache_hit = false;
+
+                if let Some(dom_id) = id {
+                    let mut lock = DEVICE_CACHE.lock().unwrap();
+                    let cache = lock.get_or_insert_with(std::collections::HashMap::new);
+                    if let Some((cached_id, cached_disks, cached_interfaces)) = cache.get(&name) {
+                        if *cached_id == dom_id {
+                            disks = cached_disks.clone();
+                            interfaces = cached_interfaces.clone();
+                            cache_hit = true;
                         }
                     }
-                    
-                    for block in collect_blocks(&xml, "<interface", "</interface>") {
-                        if let Some(target_dev) = get_attr_in_block(&block, "<target", "dev") {
-                            if let Ok(stats) = dom.interface_stats(&target_dev) {
-                                net_rx_bytes += stats.rx_bytes;
-                                net_rx_packets += stats.rx_packets;
-                                net_tx_bytes += stats.tx_bytes;
-                                net_tx_packets += stats.tx_packets;
+                }
+
+                if !cache_hit {
+                    if let Ok(xml) = dom.get_xml_desc(0) {
+                        for block in collect_blocks(&xml, "<disk", "</disk>") {
+                            if let Some(target_dev) = get_attr_in_block(&block, "<target", "dev") {
+                                disks.push(target_dev);
                             }
                         }
+                        for block in collect_blocks(&xml, "<interface", "</interface>") {
+                            if let Some(target_dev) = get_attr_in_block(&block, "<target", "dev") {
+                                interfaces.push(target_dev);
+                            }
+                        }
+                        if let Some(dom_id) = id {
+                            let mut lock = DEVICE_CACHE.lock().unwrap();
+                            let cache = lock.get_or_insert_with(std::collections::HashMap::new);
+                            cache.insert(name.clone(), (dom_id, disks.clone(), interfaces.clone()));
+                        }
                     }
+                }
+
+                for target_dev in &disks {
+                    if let Ok(stats) = dom.get_block_stats(target_dev) {
+                        disk_rd_req += stats.rd_req;
+                        disk_rd_bytes += stats.rd_bytes;
+                        disk_wr_req += stats.wr_req;
+                        disk_wr_bytes += stats.wr_bytes;
+                    }
+                }
+
+                for target_dev in &interfaces {
+                    if let Ok(stats) = dom.interface_stats(target_dev) {
+                        net_rx_bytes += stats.rx_bytes;
+                        net_rx_packets += stats.rx_packets;
+                        net_tx_bytes += stats.tx_bytes;
+                        net_tx_packets += stats.tx_packets;
+                    }
+                }
+            }
+        } else {
+            // Remove name from CONFIGURED_DOMAINS if present so it will be re-set when restarted
+            if let Ok(mut lock) = CONFIGURED_DOMAINS.lock() {
+                if let Some(set) = lock.as_mut() {
+                    set.remove(&name);
+                }
+            }
+            // Clear DEVICE_CACHE for this domain name
+            if let Ok(mut lock) = DEVICE_CACHE.lock() {
+                if let Some(cache) = lock.as_mut() {
+                    cache.remove(&name);
                 }
             }
         }

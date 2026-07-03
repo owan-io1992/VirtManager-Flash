@@ -20,6 +20,7 @@ interface VmContextMenuProps {
   handleBatchAction: (action: string) => Promise<void>;
   moveSelectedVmsToFolder: (folderId: string | null) => void;
   onDeleted: () => void;
+  showGlobalToast?: (message: string, type: "success" | "error") => void;
 }
 
 export const VmContextMenu = ({
@@ -39,6 +40,7 @@ export const VmContextMenu = ({
   handleBatchAction,
   moveSelectedVmsToFolder,
   onDeleted,
+  showGlobalToast,
 }: VmContextMenuProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: contextMenu?.x ?? 0, y: contextMenu?.y ?? 0 });
@@ -54,7 +56,12 @@ export const VmContextMenu = ({
       setContextMenu(null);
       onDeleted();
     } catch (err: any) {
-      alert(`刪除虛擬機失敗: ${err?.toString() || "未知錯誤"}`);
+      const errMsg = err?.toString() || "Unknown error";
+      if (showGlobalToast) {
+        showGlobalToast(t("delete_vm_failed", { error: errMsg }), "error");
+      } else {
+        alert(t("delete_vm_failed", { error: errMsg }));
+      }
     } finally {
       setDeleting(false);
       setDeleteConfirm(false);

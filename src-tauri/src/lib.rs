@@ -36,41 +36,6 @@ pub fn connect_libvirt() -> Result<SafeConnect, String> {
     let uri = LIBVIRT_URI.lock().unwrap().clone();
     let uri_str = uri.as_deref().unwrap_or("qemu:///system");
     
-    // Cache the connection using thread-local or static connection pool.
-    // However, since libvirt connections can be dropped or disconnected, we can just open them as needed.
-    // To implement the cached connection safely in Rust without complex mutex locks causing deadlocks,
-    // we will store the connection in a lazy static or mutex. Wait, the review suggested:
-    // "後端 cache 一條 libvirt 連線 (失敗再重連)" -> Let's implement a cached connection.
-    static CACHED_CONN: Mutex<Option<(String, Connect)>> = Mutex::new(None);
-    
-    let lock = CACHED_CONN.lock().unwrap();
-    if let Some((ref cached_uri, ref conn)) = *lock {
-        if cached_uri == uri_str {
-            // Check if connection is still alive
-            if let Ok(alive) = conn.is_alive() {
-                if alive {
-                    // Clone the raw pointer or return a wrapped reference.
-                    // Connect does not implement Clone, but we can call Connect::open to get a new one,
-                    // or keep the connection open. Actually, libvirt's `Connect` is a reference-counted pointer internally in the C library.
-                    // But in the Rust `virt` crate, `Connect` does not implement `Clone`.
-                    // To share it, we could wrap it, but it might be easier to use a connection pool or check.
-                    // Wait, let's look at `virt::connect::Connect`. It does not implement Clone.
-                    // If it does not implement Clone, sharing a single active connection across multiple commands requires wrapping it in an Arc<Mutex<Connect>> or similar,
-                    // or just re-opening it. Wait! Let's check if we can reuse the connection.
-                    // Yes! We can wrap it in an `Arc` or a static connection. But we want thread safety.
-                    // Let's check if we can open it. If opening is fast, but the review says "每個 tick 打 4 個 command，而且每個 command 都新開一條 libvirt 連線... 後端 cache 一條 libvirt 連線".
-                    // If we wrap `Connect` in an `Arc<Mutex<Connect>>`, we can share it. Let's see if we can do that.
-                    // Actually, if we just keep an `Arc<Mutex<Option<Connect>>>`, we can access it.
-                    // But wait, `virt::connect::Connect` requires a reference to do operations, which is thread-safe.
-                    // Let's implement a thread-safe connection cache in Rust:
-                }
-            }
-        }
-    }
-    
-    // For now, let's keep it simple: we open a new connection, but we do NOT fallback to session.
-    // Wait, let's check if Connect can be cloned or if we can use a global Arc<Mutex<Connect>>.
-    // Let's check:
     Connect::open(Some(uri_str))
         .map(|conn| SafeConnect(conn))
         .map_err(|e| format!("Failed to connect to libvirt at '{}': {}", uri_str, e))

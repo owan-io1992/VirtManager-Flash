@@ -10,14 +10,13 @@ use std::sync::OnceLock;
 static PROXY_TOKEN: OnceLock<String> = OnceLock::new();
 
 pub fn init_proxy_token() {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let token: String = (0..32)
         .map(|_| {
-            let val = rand::random::<u8>();
-            match val % 3 {
-                0 => ((val % 10) + b'0') as char,
-                1 => ((val % 26) + b'a') as char,
-                _ => ((val % 26) + b'A') as char,
-            }
+            let idx = rng.gen_range(0..CHARSET.len());
+            CHARSET[idx] as char
         })
         .collect();
     let _ = PROXY_TOKEN.set(token);
