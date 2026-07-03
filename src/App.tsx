@@ -581,18 +581,7 @@ function App() {
     };
   }, []);
 
-  const prevSelectedRef = useRef<string[]>([]);
 
-  // Reset tab and scroll console when selected VM changes
-  useEffect(() => {
-    const prev = prevSelectedRef.current;
-    const current = selectedVmNames;
-    const isSame = prev.length === current.length && prev.every((val, idx) => val === current[idx]);
-    if (!isSame) {
-      setActiveTab("status");
-      prevSelectedRef.current = current;
-    }
-  }, [selectedVmNames]);
 
   // Track selected VM's state to avoid re-running guest agent check on every domain refresh
   const selectedVmState = domains.find((d) => d.name === selectedVmNames[0])?.state;
@@ -1011,7 +1000,6 @@ function App() {
                         // If the VM was renamed, follow the selection to the new name
                         if (newName && newName !== selectedVm.name) {
                           const nextNames = selectedVmNames.map((n) => (n === selectedVm.name ? newName : n));
-                          prevSelectedRef.current = nextNames;
                           setSelectedVmNames(nextNames);
                         }
                         fetchDomains();
