@@ -14,3 +14,58 @@ bun tauri build "$@" || {
   echo "Error: bun tauri build failed!" >&2
   exit 1
 }
+
+# Locate the built AppImage
+BUILT_APPIMAGE=$(find src-tauri/target/release/bundle/appimage -name "VirtManager-Flash_*.AppImage" | head -n 1)
+if [ -z "$BUILT_APPIMAGE" ]; then
+  echo "Error: Built AppImage not found!" >&2
+  exit 1
+fi
+
+# WebKitGTK EGL startup crash fix (EGL_BAD_PARAMETER):
+# linuxdeploy automatically bundles the build system's libwayland client libraries.
+# At runtime, these bundled libraries conflict with the host's native graphics drivers (Mesa/NVIDIA).
+# We extract the AppImage, delete these bundled wayland libraries (forcing the app to use
+# the host's native ones), and then repackage the AppImage.
+echo "Extracting $BUILT_APPIMAGE..."
+chmod +x "$BUILT_APPIMAGE"
+"$BUILT_APPIMAGE" --appimage-extract
+
+echo "Removing problematic bundled Wayland client libraries..."
+rm -f squashfs-root/usr/lib/libwayland-client.so*
+rm -f squashfs-root/usr/lib/libwayland-egl.so*
+rm -f squashfs-root/usr/lib/libwayland-server.so*
+rm -f squashfs-root/usr/lib/libwayland-cursor.so*
+
+echo "Downloading appimagetool..."
+UNAME_ARCH=$(uname -m)
+if [ "$UNAME_ARCH" = "x86_64" ]; then
+  APPIMAGETOOL_ARCH="x86_64"
+  RUN_ARCH="x86_64"
+  DEFAULT_PKG_ARCH="amd64"
+elif [ "$UNAME_ARCH" = "aarch64" ]; then
+  APPIMAGETOOL_ARCH="aarch64"
+  RUN_ARCH="aarch64"
+  DEFAULT_PKG_ARCH="arm64"
+else
+  APPIMAGETOOL_ARCH="$UNAME_ARCH"
+  RUN_ARCH="$UNAME_ARCH"
+  DEFAULT_PKG_ARCH="$UNAME_ARCH"
+fi
+
+wget -O appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${APPIMAGETOOL_ARCH}.AppImage"
+chmod +x appimagetool
+
+# OS_LABEL/PKG_ARCH can be provided by the caller (e.g. CI matrix); fall back to
+# sensible defaults for local builds.
+OS_LABEL="${OS_LABEL:-linux}"
+PKG_ARCH="${PKG_ARCH:-$DEFAULT_PKG_ARCH}"
+OUTPUT_APPIMAGE="VirtManager-Flash_${OS_LABEL}_${PKG_ARCH}.AppImage"
+
+echo "Repackaging AppImage..."
+ARCH=$RUN_ARCH ./appimagetool squashfs-root/ "./${OUTPUT_APPIMAGE}"
+
+echo "Cleaning up intermediates..."
+rm -rf squashfs-root appimagetool
+
+echo "Built ${OUTPUT_APPIMAGE}"
