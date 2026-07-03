@@ -1,6 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { DomainItem, Folder } from "../types";
 import { TranslationKey } from "../translations";
+
+// The sidebar only needs these fields; App passes a slim projection whose
+// identity is stable across polls so React.memo can skip re-renders.
+export type SidebarVm = Pick<DomainItem, "name" | "state" | "os_type">;
 
 // Helper to determine VM state styles
 const getStateClass = (stateNum: number) => {
@@ -12,7 +16,7 @@ const getStateClass = (stateNum: number) => {
 };
 
 interface VmListProps {
-  domains: DomainItem[];
+  domains: SidebarVm[];
   folders: Folder[];
   setFolders: React.Dispatch<React.SetStateAction<Folder[]>>;
   topLevelOrder: string[];
@@ -250,6 +254,9 @@ export const VmList = React.memo(({
     }
   };
 
+  const domainByName = useMemo(() => new Map(domains.map((d) => [d.name, d])), [domains]);
+  const selectedSet = useMemo(() => new Set(selectedVmNames), [selectedVmNames]);
+
   const filter = filterText.trim().toLowerCase();
   const matchesFilter = (name: string) => !filter || name.toLowerCase().includes(filter);
 
@@ -268,13 +275,13 @@ export const VmList = React.memo(({
         const folder = folders.find((f) => f.id === itemId);
         if (folder && !folder.collapsed) {
           folder.vmNames.forEach((vmName) => {
-            if (domains.some((d) => d.name === vmName)) {
+            if (domainByName.has(vmName)) {
               list.push(vmName);
             }
           });
         }
       } else {
-        if (domains.some((d) => d.name === itemId)) {
+        if (domainByName.has(itemId)) {
           list.push(itemId);
         }
       }
@@ -367,7 +374,7 @@ export const VmList = React.memo(({
       >
         {/* Filtered flat list */}
         {isFiltering && filteredDomains!.map((vm) => {
-          const isSelected = selectedVmNames.includes(vm.name);
+          const isSelected = selectedSet.has(vm.name);
           return (
             <div
               key={vm.name}
@@ -447,9 +454,9 @@ export const VmList = React.memo(({
                 {!folder.collapsed && (
                   <div className="folder-children">
                     {folder.vmNames.map((vmName) => {
-                      const vm = domains.find((d) => d.name === vmName);
+                      const vm = domainByName.get(vmName);
                       if (!vm) return null;
-                      const isSelected = selectedVmNames.includes(vm.name);
+                      const isSelected = selectedSet.has(vm.name);
                       const isInsertionTargetVm = dragInsertion?.targetId === vm.name;
                       const vmClass = `vm-list-item ${isSelected ? "selected" : ""} ${
                         isInsertionTargetVm ? (dragInsertion.position === "before" ? "drag-insert-before" : "drag-insert-after") : ""
@@ -499,9 +506,9 @@ export const VmList = React.memo(({
             );
           } else {
             // Top-level VM
-            const vm = domains.find((d) => d.name === itemId);
+            const vm = domainByName.get(itemId);
             if (!vm) return null;
-            const isSelected = selectedVmNames.includes(vm.name);
+            const isSelected = selectedSet.has(vm.name);
             const isInsertionTargetVm = dragInsertion?.targetId === vm.name;
             const vmClass = `vm-list-item ${isSelected ? "selected" : ""} ${
               isInsertionTargetVm ? (dragInsertion.position === "before" ? "drag-insert-before" : "drag-insert-after") : ""

@@ -38,7 +38,7 @@ fn get_subnet_address(ip_str: &str, prefix_str: &str) -> String {
     format!("{}.{}.{}.{}/{}", net_parts[0], net_parts[1], net_parts[2], net_parts[3], prefix)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_networks() -> Result<Vec<NetworkItem>, String> {
     let conn = crate::connect_libvirt()?;
     let nets = conn.list_all_networks(0)
@@ -97,7 +97,7 @@ pub fn list_networks() -> Result<Vec<NetworkItem>, String> {
     Ok(list)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn start_network(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let net = Network::lookup_by_name(&conn, &name)
@@ -107,7 +107,7 @@ pub fn start_network(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to start network: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn stop_network(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let net = Network::lookup_by_name(&conn, &name)
@@ -117,7 +117,7 @@ pub fn stop_network(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to stop network: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_network(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let net = Network::lookup_by_name(&conn, &name)
@@ -131,7 +131,7 @@ pub fn delete_network(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to delete network: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_network(name: String, subnet: String, dhcp_start: String, dhcp_end: String, forward_mode: String) -> Result<(), String> {
     // Linux bridge interface name limit is 15 chars. "virbr-" is 6 chars, so name can be at most 9 chars.
     if name.len() > 9 {

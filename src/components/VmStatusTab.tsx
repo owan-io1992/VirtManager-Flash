@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { MiniLineChart } from "./MiniLineChart";
 import { DomainItem } from "../types";
 import { TranslationKey } from "../translations";
@@ -67,6 +68,8 @@ const formatIops = (val: number): string => {
   return val.toFixed(1);
 };
 
+const EMPTY_HISTORY: never[] = [];
+
 export const VmStatusTab = ({
   selectedVm,
   formatMemory,
@@ -78,8 +81,18 @@ export const VmStatusTab = ({
   metricsEnabled,
   t,
 }: VmStatusTabProps) => {
-  const history = metricsHistory[selectedVm.name] || [];
+  const history = metricsHistory[selectedVm.name] || EMPTY_HISTORY;
   const lastPoint = history[history.length - 1];
+
+  // Derived chart series, recomputed only when a new sample arrives —
+  // not on unrelated re-renders (theme/selection/hover)
+  const timestamps = useMemo(() => history.map((p) => p.timestamp), [history]);
+  const cpuData = useMemo(() => history.map((p) => p.cpu), [history]);
+  const memData = useMemo(() => history.map((p) => p.memoryPercent), [history]);
+  const diskSpeedData = useMemo(() => history.map((p) => p.diskReadSpeed + p.diskWriteSpeed), [history]);
+  const diskIopsData = useMemo(() => history.map((p) => p.diskReadIops + p.diskWriteIops), [history]);
+  const netSpeedData = useMemo(() => history.map((p) => p.netRxSpeed + p.netTxSpeed), [history]);
+  const netPacketsData = useMemo(() => history.map((p) => p.netRxPackets + p.netTxPackets), [history]);
 
   const currentDiskRead = lastPoint ? lastPoint.diskReadSpeed : 0;
   const currentDiskWrite = lastPoint ? lastPoint.diskWriteSpeed : 0;
@@ -133,8 +146,8 @@ export const VmStatusTab = ({
         <div className="metrics-section">
           <div className="metric-card">
             <MiniLineChart
-              data={history.map(p => p.cpu)}
-              timestamps={history.map(p => p.timestamp)}
+              data={cpuData}
+              timestamps={timestamps}
               color={theme === "dark" ? "#24C6DC" : "#0891B2"}
               gradientId="cpuHistoryGrad"
               label={t("cpu_usage")}
@@ -145,13 +158,14 @@ export const VmStatusTab = ({
 
           <div className="metric-card">
             <MiniLineChart
-              data={history.map(p => p.memoryPercent)}
-              timestamps={history.map(p => p.timestamp)}
-              hoverLabels={history.map(p =>
-                p.memoryUsedKb > 0
+              data={memData}
+              timestamps={timestamps}
+              getHoverLabel={(i) => {
+                const p = history[i];
+                return p.memoryUsedKb > 0
                   ? `${formatMemory(p.memoryUsedKb)} / ${formatMemory(p.memoryMaxKb)} (${p.memoryPercent.toFixed(1)}%)`
-                  : `0 MB / ${formatMemory(p.memoryMaxKb)} (0.0%)`
-              )}
+                  : `0 MB / ${formatMemory(p.memoryMaxKb)} (0.0%)`;
+              }}
               color={theme === "dark" ? "#A855F7" : "#C084FC"}
               gradientId="memHistoryGrad"
               label={t("memory_usage")}
@@ -162,11 +176,11 @@ export const VmStatusTab = ({
 
           <div className="metric-card">
             <MiniLineChart
-              data={history.map(p => p.diskReadSpeed + p.diskWriteSpeed)}
-              timestamps={history.map(p => p.timestamp)}
-              hoverLabels={history.map(p =>
-                `R: ${formatSpeed(p.diskReadSpeed)} | W: ${formatSpeed(p.diskWriteSpeed)}`
-              )}
+              data={diskSpeedData}
+              timestamps={timestamps}
+              getHoverLabel={(i) =>
+                `R: ${formatSpeed(history[i].diskReadSpeed)} | W: ${formatSpeed(history[i].diskWriteSpeed)}`
+              }
               color={theme === "dark" ? "#10B981" : "#059669"}
               gradientId="diskSpeedHistoryGrad"
               label={t("disk_io_throughput")}
@@ -178,11 +192,11 @@ export const VmStatusTab = ({
 
           <div className="metric-card">
             <MiniLineChart
-              data={history.map(p => p.diskReadIops + p.diskWriteIops)}
-              timestamps={history.map(p => p.timestamp)}
-              hoverLabels={history.map(p =>
-                `R: ${formatIops(p.diskReadIops)} | W: ${formatIops(p.diskWriteIops)} IOPS`
-              )}
+              data={diskIopsData}
+              timestamps={timestamps}
+              getHoverLabel={(i) =>
+                `R: ${formatIops(history[i].diskReadIops)} | W: ${formatIops(history[i].diskWriteIops)} IOPS`
+              }
               color={theme === "dark" ? "#F59E0B" : "#D97706"}
               gradientId="diskIopsHistoryGrad"
               label={t("disk_io_iops")}
@@ -194,11 +208,11 @@ export const VmStatusTab = ({
 
           <div className="metric-card">
             <MiniLineChart
-              data={history.map(p => p.netRxSpeed + p.netTxSpeed)}
-              timestamps={history.map(p => p.timestamp)}
-              hoverLabels={history.map(p =>
-                `RX: ${formatSpeed(p.netRxSpeed)} | TX: ${formatSpeed(p.netTxSpeed)}`
-              )}
+              data={netSpeedData}
+              timestamps={timestamps}
+              getHoverLabel={(i) =>
+                `RX: ${formatSpeed(history[i].netRxSpeed)} | TX: ${formatSpeed(history[i].netTxSpeed)}`
+              }
               color={theme === "dark" ? "#3B82F6" : "#2563EB"}
               gradientId="netSpeedHistoryGrad"
               label={t("net_io_throughput")}
@@ -210,11 +224,11 @@ export const VmStatusTab = ({
 
           <div className="metric-card">
             <MiniLineChart
-              data={history.map(p => p.netRxPackets + p.netTxPackets)}
-              timestamps={history.map(p => p.timestamp)}
-              hoverLabels={history.map(p =>
-                `RX: ${formatIops(p.netRxPackets)} | TX: ${formatIops(p.netTxPackets)} Pkts/s`
-              )}
+              data={netPacketsData}
+              timestamps={timestamps}
+              getHoverLabel={(i) =>
+                `RX: ${formatIops(history[i].netRxPackets)} | TX: ${formatIops(history[i].netTxPackets)} Pkts/s`
+              }
               color={theme === "dark" ? "#EC4899" : "#DB2777"}
               gradientId="netPacketsHistoryGrad"
               label={t("net_io_packets")}

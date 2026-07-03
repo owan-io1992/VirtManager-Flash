@@ -104,7 +104,7 @@ fn parse_mem_info() -> (u64, u64) {
     (total_kb, available_kb)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_system_resources() -> Result<SystemResources, String> {
     let (cpu_cores, cpu_threads) = parse_cpu_info();
     let (mem_total_kb, mem_available_kb) = parse_mem_info();
@@ -119,12 +119,14 @@ pub fn get_system_resources() -> Result<SystemResources, String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_libvirt_uri(uri: String) -> Result<(), String> {
     let mut conn = Connect::open(Some(&uri))
         .map_err(|e| format!("Failed to connect with URI '{}': {}", uri, e))?;
     let _ = conn.close();
     *crate::LIBVIRT_URI.lock().unwrap() = Some(uri);
+    // Drop the cached connection so the next command connects with the new URI
+    crate::invalidate_connection();
     Ok(())
 }
 

@@ -38,7 +38,7 @@ pub struct DomainItem {
     pub net_tx_packets: i64,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, String> {
     static CONFIGURED_DOMAINS: std::sync::Mutex<Option<std::collections::HashMap<String, u32>>> = std::sync::Mutex::new(None);
     static DEVICE_CACHE: std::sync::Mutex<Option<std::collections::HashMap<String, (u32, Vec<String>, Vec<String>)>>> = std::sync::Mutex::new(None);
@@ -241,7 +241,7 @@ pub fn list_domains(include_stats: Option<bool>) -> Result<Vec<DomainItem>, Stri
     Ok(list)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn start_domain(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -251,7 +251,7 @@ pub fn start_domain(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to start VM: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn shutdown_domain(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -261,7 +261,7 @@ pub fn shutdown_domain(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to shutdown VM: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn stop_domain(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -271,7 +271,7 @@ pub fn stop_domain(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to force stop VM: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn suspend_domain(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -281,7 +281,7 @@ pub fn suspend_domain(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to suspend VM: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn resume_domain(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -291,7 +291,7 @@ pub fn resume_domain(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to resume VM: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn reboot_domain(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -301,7 +301,7 @@ pub fn reboot_domain(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to reboot VM: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn reset_domain(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -311,7 +311,7 @@ pub fn reset_domain(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to reset VM: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_vm(name: String, delete_storage: bool) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -356,7 +356,7 @@ pub fn delete_vm(name: String, delete_storage: bool) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_viewer(name: String) -> Result<(), String> {
     std::process::Command::new("virt-viewer")
         .arg("--attach")
@@ -368,7 +368,7 @@ pub fn open_viewer(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to launch virt-viewer: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_vm_spice_port(name: String) -> Result<u16, String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -1061,7 +1061,7 @@ fn apply_nics_live(dom: &Domain, nics: &[NicInfo]) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn update_vm_settings(
     name: String,
     new_name: String,
@@ -1238,7 +1238,7 @@ pub fn update_vm_settings(
 }
 
 /// Send an arbitrary QEMU guest agent command and return the raw response.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn qemu_agent_command(name: String, cmd: String) -> Result<String, String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -1248,7 +1248,7 @@ pub fn qemu_agent_command(name: String, cmd: String) -> Result<String, String> {
 }
 
 /// Return raw memory stats tags and values for debugging.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn debug_memory_stats(name: String) -> Result<Vec<(i32, u64)>, String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -1259,15 +1259,17 @@ pub fn debug_memory_stats(name: String) -> Result<Vec<(i32, u64)>, String> {
 }
 
 /// Check whether the QEMU guest agent is actively running in the VM.
-/// Sends guest-ping with a generous timeout; retries once on failure.
-#[tauri::command]
+/// Sends guest-ping with a short timeout; retries once on failure. A missing
+/// agent fails immediately; the timeout only bounds a stuck agent, so keep it
+/// small — this command holds the shared libvirt connection while it waits.
+#[tauri::command(async)]
 pub fn check_guest_agent(name: String) -> Result<bool, String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
         .map_err(|e| format!("VM not found: {}", e))?;
 
     for _ in 0..2 {
-        if dom.qemu_agent_command(r#"{"execute":"guest-ping"}"#, 10, 0).is_ok() {
+        if dom.qemu_agent_command(r#"{"execute":"guest-ping"}"#, 2, 0).is_ok() {
             return Ok(true);
         }
     }
@@ -1275,7 +1277,7 @@ pub fn check_guest_agent(name: String) -> Result<bool, String> {
 }
 
 /// Return the raw persistent XML for the XML editing mode
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_vm_xml(name: String) -> Result<String, String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -1286,7 +1288,7 @@ pub fn get_vm_xml(name: String) -> Result<String, String> {
 }
 
 /// Persist a hand-edited XML definition for the VM
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_vm_xml(xml: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     Domain::define_xml(&conn, &xml)
@@ -1435,7 +1437,7 @@ fn parse_nics(xml: &str) -> Vec<NicInfo> {
         .collect()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -1573,7 +1575,7 @@ pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_vm(
     name: String,
     vcpu: u32,
@@ -1752,7 +1754,7 @@ pub struct SnapshotItem {
     pub is_current: bool,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_snapshots(name: String) -> Result<Vec<SnapshotItem>, String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -1793,7 +1795,7 @@ pub fn list_snapshots(name: String) -> Result<Vec<SnapshotItem>, String> {
     Ok(list)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_snapshot(vm_name: String, snapshot_name: String, description: Option<String>) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &vm_name)
@@ -1818,7 +1820,7 @@ pub fn create_snapshot(vm_name: String, snapshot_name: String, description: Opti
         .map_err(|e| format!("Failed to create snapshot: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn revert_to_snapshot(vm_name: String, snapshot_name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &vm_name)
@@ -1831,7 +1833,7 @@ pub fn revert_to_snapshot(vm_name: String, snapshot_name: String) -> Result<(), 
         .map_err(|e| format!("Failed to revert to snapshot: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_snapshot(vm_name: String, snapshot_name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &vm_name)

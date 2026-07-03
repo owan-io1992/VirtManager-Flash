@@ -4,41 +4,57 @@ pub mod storage;
 pub mod proxy;
 pub mod domains;
 
-use std::sync::Mutex;
-use std::ops::{Deref, DerefMut};
+use std::sync::{Mutex, MutexGuard};
+use std::ops::Deref;
 use virt::connect::Connect;
 
 pub static LIBVIRT_URI: Mutex<Option<String>> = Mutex::new(None);
 
-pub struct SafeConnect(Connect);
+// Cached libvirt connection shared by all commands. libvirt's C API is
+// thread-safe; the Mutex both guards the Option and serializes command access
+// (commands previously ran serialized on the main thread anyway). Reusing one
+// connection avoids a full open/close handshake per command — critical for
+// remote (SSH) URIs where reconnecting every 2s poll is prohibitively slow.
+static CONNECTION: Mutex<Option<Connect>> = Mutex::new(None);
 
-impl Deref for SafeConnect {
+pub struct ConnGuard(MutexGuard<'static, Option<Connect>>);
+
+impl Deref for ConnGuard {
     type Target = Connect;
     fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for SafeConnect {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Drop for SafeConnect {
-    fn drop(&mut self) {
-        let _ = self.0.close();
+        self.0.as_ref().unwrap()
     }
 }
 
 // Public shared helpers used by sub-modules
-pub fn connect_libvirt() -> Result<SafeConnect, String> {
-    let uri = LIBVIRT_URI.lock().unwrap().clone();
+pub fn connect_libvirt() -> Result<ConnGuard, String> {
+    let mut guard = CONNECTION.lock().unwrap_or_else(|p| p.into_inner());
+
+    if let Some(conn) = guard.as_ref() {
+        if conn.is_alive().unwrap_or(false) {
+            return Ok(ConnGuard(guard));
+        }
+        if let Some(mut stale) = guard.take() {
+            let _ = stale.close();
+        }
+    }
+
+    let uri = LIBVIRT_URI.lock().unwrap_or_else(|p| p.into_inner()).clone();
     let uri_str = uri.as_deref().unwrap_or("qemu:///system");
-    
-    Connect::open(Some(uri_str))
-        .map(|conn| SafeConnect(conn))
-        .map_err(|e| format!("Failed to connect to libvirt at '{}': {}", uri_str, e))
+
+    let conn = Connect::open(Some(uri_str))
+        .map_err(|e| format!("Failed to connect to libvirt at '{}': {}", uri_str, e))?;
+    *guard = Some(conn);
+    Ok(ConnGuard(guard))
+}
+
+// Close and drop the cached connection so the next command reconnects
+// (used when the libvirt URI changes).
+pub fn invalidate_connection() {
+    let mut guard = CONNECTION.lock().unwrap_or_else(|p| p.into_inner());
+    if let Some(mut stale) = guard.take() {
+        let _ = stale.close();
+    }
 }
 
 pub fn extract_xml_tag_attr(xml: &str, tag_prefix: &str, attr: &str) -> Option<String> {

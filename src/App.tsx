@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
@@ -479,7 +479,10 @@ function App() {
         }
       });
 
-      if (JSON.stringify(prevOrder) === JSON.stringify(nextOrder)) {
+      if (
+        prevOrder.length === nextOrder.length &&
+        prevOrder.every((val, idx) => val === nextOrder[idx])
+      ) {
         return prevOrder;
       }
       return nextOrder;
@@ -487,12 +490,42 @@ function App() {
   }, [folders, domains]);
 
   useEffect(() => {
-    fetchDomains();
+    let stopped = false;
+    let timer: number | null = null;
+    let inFlight = false;
 
-    // Setup polling every 2 seconds
-    const interval = setInterval(() => {
-      fetchDomains(true);
-    }, 2000);
+    // Self-scheduling poll: the next tick is armed only after the previous
+    // fetch finishes, so slow backends (e.g. remote libvirt) never stack
+    // overlapping requests. Polling pauses while the window is hidden.
+    const schedule = () => {
+      if (stopped || document.hidden) return;
+      timer = window.setTimeout(tick, 2000);
+    };
+
+    const tick = async () => {
+      timer = null;
+      if (stopped || document.hidden) return;
+      inFlight = true;
+      await fetchDomains(true);
+      inFlight = false;
+      schedule();
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (timer !== null) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      } else if (timer === null && !inFlight && !stopped) {
+        tick();
+      }
+    };
+
+    fetchDomains().finally(() => {
+      if (!stopped && timer === null) schedule();
+    });
+    document.addEventListener("visibilitychange", handleVisibility);
 
     // Close context menu on click elsewhere
     const handleWindowClick = () => {
@@ -500,7 +533,9 @@ function App() {
     };
     window.addEventListener("click", handleWindowClick);
     return () => {
-      clearInterval(interval);
+      stopped = true;
+      if (timer !== null) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("click", handleWindowClick);
     };
   }, []);
@@ -757,6 +792,24 @@ function App() {
     }
   };
 
+  // Slim projection for the sidebar list. With metrics on, `domains` gets a
+  // new identity every poll (cpu_time always changes), which would defeat
+  // VmList's memo. The sidebar only renders name/state/os_type, so keep the
+  // previous array reference whenever those fields are unchanged.
+  const sidebarVmsRef = useRef<Pick<DomainItem, "name" | "state" | "os_type">[]>([]);
+  const sidebarVms = useMemo(() => {
+    const prev = sidebarVmsRef.current;
+    const next = domains.map((d) => ({ name: d.name, state: d.state, os_type: d.os_type }));
+    if (
+      prev.length === next.length &&
+      prev.every((p, i) => p.name === next[i].name && p.state === next[i].state && p.os_type === next[i].os_type)
+    ) {
+      return prev;
+    }
+    sidebarVmsRef.current = next;
+    return next;
+  }, [domains]);
+
   const runningCount = domains.filter((d) => d.state === 1).length;
   const stoppedCount = domains.filter((d) => d.state !== 1).length;
 
@@ -811,7 +864,7 @@ function App() {
 
         {/* Modularized VM Sidebar List */}
         <VmList
-          domains={domains}
+          domains={sidebarVms}
           folders={folders}
           setFolders={setFolders}
           topLevelOrder={topLevelOrder}

@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 interface MiniLineChartProps {
   data: number[];
   timestamps: number[];
-  hoverLabels?: string[];
+  // Called only for the hovered point, so parents don't have to pre-format
+  // a label for every point on every render
+  getHoverLabel?: (dataIdx: number) => string;
   color: string;
   gradientId: string;
   label: string;
@@ -15,10 +17,22 @@ interface MiniLineChartProps {
 
 const WINDOW_MS = 10 * 60 * 1000; // 10 minutes in ms
 
+const paddingLeft = 45;
+const paddingRight = 15;
+const paddingTop = 15;
+const paddingBottom = 25;
+
+const formatTime = (ts: number) => {
+  const date = new Date(ts);
+  const mins = String(date.getMinutes()).padStart(2, '0');
+  const secs = String(date.getSeconds()).padStart(2, '0');
+  return `${mins}:${secs}`;
+};
+
 export const MiniLineChart = ({
   data,
   timestamps,
-  hoverLabels,
+  getHoverLabel,
   color,
   gradientId,
   label,
@@ -47,72 +61,69 @@ export const MiniLineChart = ({
 
   const { width, height } = dimensions;
 
-  const paddingLeft = 45;
-  const paddingRight = 15;
-  const paddingTop = 15;
-  const paddingBottom = 25;
-
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
 
-  // Fixed 10-minute window: [windowStart, windowEnd]
-  const now = timestamps.length > 0 ? timestamps[timestamps.length - 1] : Date.now();
-  const windowEnd = now;
-  const windowStart = windowEnd - WINDOW_MS;
+  // Geometry is memoized so hover-driven re-renders (mousemove state updates)
+  // only redraw the overlay instead of recomputing every path point
+  const { coords, pathD, areaD, dataMax, maxLimit, windowStart } = useMemo(() => {
+    // Fixed 10-minute window: [windowStart, windowEnd]
+    const now = timestamps.length > 0 ? timestamps[timestamps.length - 1] : Date.now();
+    const windowEnd = now;
+    const windowStart = windowEnd - WINDOW_MS;
 
-  // Filter data points within the 10-minute window
-  const visibleIndices: number[] = [];
-  for (let i = 0; i < timestamps.length; i++) {
-    if (timestamps[i] >= windowStart && timestamps[i] <= windowEnd) {
-      visibleIndices.push(i);
+    // Filter data points within the 10-minute window
+    const visibleIndices: number[] = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      if (timestamps[i] >= windowStart && timestamps[i] <= windowEnd) {
+        visibleIndices.push(i);
+      }
     }
-  }
 
-  // Find max value in visible indices to auto-scale, fallback to 100 or a minimum ceiling
-  const visibleVals = visibleIndices.map(i => data[i]);
-  const dataMax = visibleVals.length > 0 ? Math.max(...visibleVals) : 0;
-  const maxLimit = maxVal !== undefined ? maxVal : (dataMax > 0 ? Math.max(dataMax * 1.1, 1) : 100);
+    // Find max value in visible indices to auto-scale, fallback to 100 or a minimum ceiling
+    const visibleVals = visibleIndices.map(i => data[i]);
+    const dataMax = visibleVals.length > 0 ? Math.max(...visibleVals) : 0;
+    const maxLimit = maxVal !== undefined ? maxVal : (dataMax > 0 ? Math.max(dataMax * 1.1, 1) : 100);
 
-  // Map timestamp to X position within the fixed window
-  const tsToX = (ts: number) => {
-    const pct = (ts - windowStart) / WINDOW_MS;
-    return paddingLeft + pct * chartWidth;
-  };
+    // Map timestamp to X position within the fixed window
+    const tsToX = (ts: number) => {
+      const pct = (ts - windowStart) / WINDOW_MS;
+      return paddingLeft + pct * chartWidth;
+    };
 
-  // Build coordinates for visible points
-  const coords = visibleIndices.map((i) => ({
-    x: tsToX(timestamps[i]),
-    y: paddingTop + chartHeight - (Math.min(maxLimit, Math.max(0, data[i])) / maxLimit) * chartHeight,
-    dataIdx: i,
-  }));
+    // Build coordinates for visible points
+    const coords = visibleIndices.map((i) => ({
+      x: tsToX(timestamps[i]),
+      y: paddingTop + chartHeight - (Math.min(maxLimit, Math.max(0, data[i])) / maxLimit) * chartHeight,
+      dataIdx: i,
+    }));
 
-  // Line path
-  const pathD = coords.reduce((acc, coord, idx) => {
-    return acc + `${idx === 0 ? "M" : "L"} ${coord.x.toFixed(1)} ${coord.y.toFixed(1)}`;
-  }, "");
+    // Line path
+    const pathD = coords.reduce((acc, coord, idx) => {
+      return acc + `${idx === 0 ? "M" : "L"} ${coord.x.toFixed(1)} ${coord.y.toFixed(1)}`;
+    }, "");
 
-  // Area path (closed at the bottom)
-  const areaD = coords.length > 0
-    ? `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${(height - paddingBottom).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(height - paddingBottom).toFixed(1)} Z`
-    : "";
+    // Area path (closed at the bottom)
+    const areaD = coords.length > 0
+      ? `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${(height - paddingBottom).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(height - paddingBottom).toFixed(1)} Z`
+      : "";
 
-  const formatTime = (ts: number) => {
-    const date = new Date(ts);
-    const mins = String(date.getMinutes()).padStart(2, '0');
-    const secs = String(date.getSeconds()).padStart(2, '0');
-    return `${mins}:${secs}`;
-  };
+    return { coords, pathD, areaD, dataMax, maxLimit, windowStart };
+  }, [data, timestamps, maxVal, width, height, chartWidth, chartHeight]);
 
   // Generate 5 evenly-spaced X-axis labels across the 10-minute window
-  const xAxisLabels: { label: string; pct: number }[] = [];
-  const labelCount = 5;
-  for (let i = 0; i < labelCount; i++) {
-    const ts = windowStart + (i / (labelCount - 1)) * WINDOW_MS;
-    xAxisLabels.push({
-      label: formatTime(ts),
-      pct: (i / (labelCount - 1)) * 100,
-    });
-  }
+  const xAxisLabels = useMemo(() => {
+    const labels: { label: string; pct: number }[] = [];
+    const labelCount = 5;
+    for (let i = 0; i < labelCount; i++) {
+      const ts = windowStart + (i / (labelCount - 1)) * WINDOW_MS;
+      labels.push({
+        label: formatTime(ts),
+        pct: (i / (labelCount - 1)) * 100,
+      });
+    }
+    return labels;
+  }, [windowStart]);
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (coords.length === 0) return;
@@ -139,8 +150,8 @@ export const MiniLineChart = ({
 
   const getHoveredValueString = (coordIdx: number) => {
     const dataIdx = coords[coordIdx].dataIdx;
-    if (hoverLabels && hoverLabels[dataIdx] !== undefined) {
-      return hoverLabels[dataIdx];
+    if (getHoverLabel) {
+      return getHoverLabel(dataIdx);
     }
     return `${data[dataIdx].toFixed(1)}%`;
   };

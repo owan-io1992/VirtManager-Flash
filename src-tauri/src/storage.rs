@@ -9,7 +9,7 @@ pub struct IsoFile {
     pub pool_name: String,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_iso_files() -> Result<Vec<IsoFile>, String> {
     let conn = crate::connect_libvirt()?;
     let pools = conn.list_all_storage_pools(0)
@@ -77,7 +77,7 @@ pub struct StoragePoolItem {
     pub volumes: Vec<VolumeItem>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_storage_pools() -> Result<Vec<StoragePoolItem>, String> {
     let conn = crate::connect_libvirt()?;
     let pools = conn.list_all_storage_pools(0)
@@ -205,7 +205,7 @@ pub fn list_storage_pools() -> Result<Vec<StoragePoolItem>, String> {
     Ok(list)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn start_storage_pool(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let pool = StoragePool::lookup_by_name(&conn, &name)
@@ -215,7 +215,7 @@ pub fn start_storage_pool(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to start storage pool: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn stop_storage_pool(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let pool = StoragePool::lookup_by_name(&conn, &name)
@@ -225,7 +225,7 @@ pub fn stop_storage_pool(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to stop storage pool: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_storage_pool(name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let pool = StoragePool::lookup_by_name(&conn, &name)
@@ -238,7 +238,7 @@ pub fn delete_storage_pool(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to delete storage pool: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_storage_pool(name: String, path: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
 
@@ -258,7 +258,7 @@ pub fn create_storage_pool(name: String, path: String) -> Result<(), String> {
         .map_err(|e| format!("Pool defined but failed to start: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_volume(pool_name: String, vol_name: String, size_gb: u64, format: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let pool = StoragePool::lookup_by_name(&conn, &pool_name)
@@ -277,7 +277,7 @@ pub fn create_volume(pool_name: String, vol_name: String, size_gb: u64, format: 
         .map_err(|e| format!("Failed to create volume: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_volume(pool_name: String, vol_name: String) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let pool = StoragePool::lookup_by_name(&conn, &pool_name)
@@ -291,7 +291,7 @@ pub fn delete_volume(pool_name: String, vol_name: String) -> Result<(), String> 
         .map_err(|e| format!("Failed to delete volume: {}", e))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn resize_volume(pool_name: String, vol_name: String, new_size_gb: u64) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let pool = StoragePool::lookup_by_name(&conn, &pool_name)
