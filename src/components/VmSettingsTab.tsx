@@ -1296,8 +1296,29 @@ const VmSettingsTabComponent = ({
               {t("vm_sharing_windows_mount_desc")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", background: "rgba(0,0,0,0.1)", padding: "1rem", borderRadius: "4px", border: "1px solid rgba(255,255,255,0.05)" }}>
-              <div>{t("vm_sharing_windows_step1")}</div>
-              <div>{t("vm_sharing_windows_step2")}</div>
+              <div>
+                {t("vm_sharing_windows_step1")}{" "}
+                <a
+                  href="https://winfsp.dev/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#24C6DC", textDecoration: "underline", fontWeight: "bold" }}
+                >
+                  WinFSP
+                </a>
+              </div>
+              <div>
+                {t("vm_sharing_windows_step2_prefix")}{" "}
+                <a
+                  href="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#24C6DC", textDecoration: "underline", fontWeight: "bold" }}
+                >
+                  {t("vm_sharing_windows_step2_link")}
+                </a>
+                {t("vm_sharing_windows_step2_suffix")}
+              </div>
               <div>{t("vm_sharing_windows_step3")}</div>
             </div>
           </div>
