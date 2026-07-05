@@ -130,9 +130,10 @@ function App() {
 
   // Tabs & Console States
   const [activeTab, setActiveTab] = useState<"status" | "console" | "settings" | "snapshots">("status");
-  const [spicePort, setSpicePort] = useState<number | null>(null);
-  const [spiceError, setSpiceError] = useState<string | null>(null);
-  const [spiceLoading, setSpiceLoading] = useState(false);
+  const [graphicsPort, setGraphicsPort] = useState<number | null>(null);
+  const [graphicsProtocol, setGraphicsProtocol] = useState<"vnc" | "spice" | null>(null);
+  const [graphicsError, setGraphicsError] = useState<string | null>(null);
+  const [graphicsLoading, setGraphicsLoading] = useState(false);
   const [proxyToken, setProxyToken] = useState<string>("");
 
   useEffect(() => {
@@ -611,29 +612,33 @@ function App() {
     let attempts = 0;
     const maxAttempts = 10;
 
-    setSpiceLoading(true);
-    setSpiceError(null);
-    setSpicePort(null);
+    setGraphicsLoading(true);
+    setGraphicsError(null);
+    setGraphicsPort(null);
+    setGraphicsProtocol(null);
 
     const tryFetch = () => {
-      invoke<number>("get_vm_spice_port", { name: selectedVmName })
-        .then((port) => {
+      invoke<string>("get_vm_graphics_port", { name: selectedVmName })
+        .then((result) => {
           if (cancelled) return;
-          setSpicePort(port);
-          setSpiceLoading(false);
+          // result is "vnc:<port>" or "spice:<port>"
+          const [protocol, portStr] = result.split(":");
+          setGraphicsProtocol(protocol === "vnc" ? "vnc" : "spice");
+          setGraphicsPort(parseInt(portStr, 10));
+          setGraphicsLoading(false);
         })
         .catch((err) => {
           if (cancelled) return;
           const message = err?.toString() || "";
           // Port not yet allocated by qemu right after start — retry briefly instead of erroring out
-          if (message.includes("SPICE_PORT_NOT_READY") && attempts < maxAttempts) {
+          if (message.includes("GRAPHICS_PORT_NOT_READY") && attempts < maxAttempts) {
             attempts += 1;
             setTimeout(tryFetch, 800);
             return;
           }
           console.error(err);
-          setSpiceError(message || t("err_spice"));
-          setSpiceLoading(false);
+          setGraphicsError(message || t("err_spice"));
+          setGraphicsLoading(false);
         });
     };
 
@@ -935,8 +940,8 @@ function App() {
                 </button>
                 {activeTab === "console" &&
                   selectedVm?.state === 1 &&
-                  spicePort &&
-                  spiceError !== "SPICE_GL_NO_PORT" && (
+                  graphicsPort &&
+                  graphicsError !== "SPICE_GL_NO_PORT" && (
                     <button
                       className="tab-item"
                       style={{ marginLeft: "auto" }}
@@ -981,9 +986,10 @@ function App() {
                     <VmConsoleTab
                       vmName={selectedVm.name}
                       vmState={selectedVm.state}
-                      spiceLoading={spiceLoading}
-                      spiceError={spiceError}
-                      spicePort={spicePort}
+                      graphicsLoading={graphicsLoading}
+                      graphicsError={graphicsError}
+                      graphicsProtocol={graphicsProtocol}
+                      graphicsPort={graphicsPort}
                       proxyToken={proxyToken}
                       onOpenViewer={() => invoke("open_viewer", { name: selectedVm.name })}
                       t={t}

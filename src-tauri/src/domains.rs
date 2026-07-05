@@ -368,22 +368,12 @@ pub fn open_viewer(name: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to launch virt-viewer: {}", e))
 }
 
-#[tauri::command(async)]
-pub fn get_vm_spice_port(name: String) -> Result<u16, String> {
-    let conn = crate::connect_libvirt()?;
-    let dom = Domain::lookup_by_name(&conn, &name)
-        .map_err(|e| format!("VM not found: {}", e))?;
-    
-    let xml = dom.get_xml_desc(0)
-        .map_err(|e| format!("Failed to get VM XML: {}", e))?;
-    
-    // Detect SPICE with GL rendering (listen type='none') — no TCP port available
-    if xml.contains("type='spice'") && (xml.contains("<listen type='none'/>") || xml.contains("listen type=\"none\"")) {
-        return Err("SPICE_GL_NO_PORT".to_string());
-    }
-
-    // Check for SPICE graphics port
-    if let Some(idx) = xml.find("type='spice'") {
+// Extracts the allocated TCP port for a given graphics type from domain XML.
+// Returns Ok(Some(port)) when allocated, Ok(None) when the graphics type is absent,
+// and Err(NOT_READY) when autoport hasn't been assigned yet (port='-1').
+fn find_graphics_port(xml: &str, gtype: &str) -> Result<Option<u16>, String> {
+    let marker = format!("type='{}'", gtype);
+    if let Some(idx) = xml.find(&marker) {
         // Use graphics element boundary to avoid matching 'port=' inside 'autoport='
         if let Some(elem_end) = xml[idx..].find('>') {
             let elem = &xml[idx..idx + elem_end];
@@ -392,34 +382,131 @@ pub fn get_vm_spice_port(name: String) -> Result<u16, String> {
                 if let Some(port_end) = xml[start..].find("'") {
                     let port_str = &xml[start..start + port_end];
                     if let Ok(p) = port_str.parse::<u16>() {
-                        return Ok(p);
+                        return Ok(Some(p));
                     }
                     // port='-1' means libvirt/qemu hasn't allocated the autoport yet
                     if port_str == "-1" {
-                        return Err("SPICE_PORT_NOT_READY".to_string());
+                        return Err("GRAPHICS_PORT_NOT_READY".to_string());
                     }
                 }
             }
         }
     }
+    Ok(None)
+}
 
-    // Fallback: check for VNC graphics port
-    if let Some(idx) = xml.find("type='vnc'") {
-        if let Some(elem_end) = xml[idx..].find('>') {
-            let elem = &xml[idx..idx + elem_end];
-            if let Some(port_start) = elem.find(" port='") {
-                let start = idx + port_start + 7;
-                if let Some(port_end) = xml[start..].find("'") {
-                    let port_str = &xml[start..start + port_end];
-                    if let Ok(p) = port_str.parse::<u16>() {
-                        return Err(format!("VNC_PORT_DETECTED:{}", p));
-                    }
-                }
-            }
-        }
+// Returns "vnc:<port>" or "spice:<port>". VNC is preferred because the embedded
+// noVNC client vastly outperforms spice-html5.
+#[tauri::command(async)]
+pub fn get_vm_graphics_port(name: String) -> Result<String, String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &name)
+        .map_err(|e| format!("VM not found: {}", e))?;
+
+    let xml = dom.get_xml_desc(0)
+        .map_err(|e| format!("Failed to get VM XML: {}", e))?;
+
+    if let Some(p) = find_graphics_port(&xml, "vnc")? {
+        return Ok(format!("vnc:{}", p));
+    }
+
+    // Detect SPICE with GL rendering (listen type='none') — no TCP port available
+    if xml.contains("type='spice'") && (xml.contains("<listen type='none'/>") || xml.contains("listen type=\"none\"")) {
+        return Err("SPICE_GL_NO_PORT".to_string());
+    }
+
+    if let Some(p) = find_graphics_port(&xml, "spice")? {
+        return Ok(format!("spice:{}", p));
     }
 
     Err("No graphics display (SPICE or VNC) found for this VM".to_string())
+}
+
+// Removes every <tag ...> element (self-closing or paired) whose opening tag
+// contains `marker`, together with the leading indentation of its line.
+fn remove_elements_containing(xml: &str, tag: &str, marker: &str) -> String {
+    let open = format!("<{}", tag);
+    let close = format!("</{}>", tag);
+    let mut out = xml.to_string();
+    let mut search_from = 0;
+    while let Some(rel) = out[search_from..].find(&open) {
+        let start = search_from + rel;
+        let Some(tag_end_rel) = out[start..].find('>') else { break };
+        let tag_end = start + tag_end_rel;
+        let open_tag = &out[start..=tag_end];
+        let elem_end = if open_tag.ends_with("/>") {
+            tag_end + 1
+        } else {
+            match out[tag_end..].find(&close) {
+                Some(r) => tag_end + r + close.len(),
+                None => break,
+            }
+        };
+        if out[start..tag_end].contains(marker) {
+            let line_start = match out[..start].rfind('\n') {
+                Some(i) if out[i + 1..start].trim().is_empty() => i,
+                _ => start,
+            };
+            out.replace_range(line_start..elem_end, "");
+            search_from = line_start;
+        } else {
+            search_from = tag_end + 1;
+        }
+    }
+    out
+}
+
+fn insert_before_devices_close(xml: &mut String, snippet: &str) {
+    if let Some(idx) = xml.find("</devices>") {
+        xml.insert_str(idx, snippet);
+    }
+}
+
+// Rewrites a VM's persistent config to the setup this app works best with:
+// VNC display on localhost (embedded noVNC console), no SPICE-only devices,
+// audio backend 'none', and virtio video instead of QXL.
+#[tauri::command(async)]
+pub fn optimize_vm_for_app(name: String) -> Result<String, String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &name)
+        .map_err(|e| format!("VM not found: {}", e))?;
+
+    // Persistent (inactive) config so the change survives and applies on next boot
+    let mut xml = dom.get_xml_desc(virt::sys::VIR_DOMAIN_XML_INACTIVE)
+        .map_err(|e| format!("Failed to get VM XML: {}", e))?;
+
+    // SPICE-only devices must go before the spice display can be removed
+    xml = remove_elements_containing(&xml, "channel", "spicevmc");
+    xml = remove_elements_containing(&xml, "redirdev", "spicevmc");
+    xml = remove_elements_containing(&xml, "graphics", "type='spice'");
+
+    if !xml.contains("<graphics type='vnc'") {
+        insert_before_devices_close(&mut xml, "    <graphics type='vnc' autoport='yes' listen='127.0.0.1'>\n      <listen type='address' address='127.0.0.1'/>\n    </graphics>\n  ");
+    }
+
+    // Audio backend: none (SPICE audio would block VM startup without spice graphics)
+    let had_audio = xml.contains("<audio");
+    xml = remove_elements_containing(&xml, "audio", "type=");
+    if had_audio || xml.contains("<sound") {
+        insert_before_devices_close(&mut xml, "    <audio id='1' type='none'/>\n  ");
+    }
+
+    // QXL video is a SPICE-era device; virtio performs better with VNC
+    while let Some(vstart) = xml.find("<video") {
+        let Some(rel_end) = xml[vstart..].find("</video>") else { break };
+        let vend = vstart + rel_end + "</video>".len();
+        if xml[vstart..vend].contains("qxl") {
+            xml.replace_range(vstart..vend, "<video>\n      <model type='virtio' heads='1' primary='yes'/>\n    </video>");
+        } else {
+            break;
+        }
+    }
+
+    Domain::define_xml(&conn, &xml)
+        .map_err(|e| format!("Failed to apply optimized config: {}", e))?;
+
+    let running = dom.is_active().unwrap_or(false);
+    Ok(if running { "RESTART_REQUIRED".to_string() } else { "APPLIED".to_string() })
 }
 
 // Helper functions for reading values out of domain XML
@@ -1686,21 +1773,17 @@ pub fn create_vm(
       <source network='default'/>
       <model type='virtio'/>
     </interface>
-    <graphics type='spice' autoport='yes'>
-      <listen type='address'/>
-      <image compression='lz'/>
-      <streaming mode='off'/>
+    <graphics type='vnc' autoport='yes' listen='127.0.0.1'>
+      <listen type='address' address='127.0.0.1'/>
     </graphics>
     <video>
-      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
+      <model type='virtio' heads='1' primary='yes'/>
     </video>
+    <audio id='1' type='none'/>
     <input type='tablet' bus='usb'/>
     <input type='keyboard' bus='usb'/>
     <channel type='unix'>
       <target type='virtio' name='org.qemu.guest_agent.0'/>
-    </channel>
-    <channel type='spicevmc'>
-      <target type='virtio' name='com.redhat.spice.0'/>
     </channel>{tpm_block}
     <memballoon model='virtio'/>
     <rng model='virtio'>

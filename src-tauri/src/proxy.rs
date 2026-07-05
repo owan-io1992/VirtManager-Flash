@@ -30,7 +30,10 @@ pub fn get_proxy_token() -> Result<String, String> {
 pub async fn run_proxy_server() {
     let listener = match TcpListener::bind("127.0.0.1:5959").await {
         Ok(l) => l,
-        Err(_) => return,
+        Err(e) => {
+            eprintln!("Console proxy failed to bind 127.0.0.1:5959 (port already in use?): {}", e);
+            return;
+        }
     };
     
     while let Ok((stream, _)) = listener.accept().await {

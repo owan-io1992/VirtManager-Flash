@@ -172,6 +172,7 @@ const VmSettingsTabComponent = ({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -407,6 +408,23 @@ const VmSettingsTabComponent = ({
     }
   };
 
+  const handleOptimize = async () => {
+    setOptimizing(true);
+    try {
+      const result = await invoke<string>("optimize_vm_for_app", { name: selectedVm.name });
+      showToastMessage(
+        result === "RESTART_REQUIRED" ? t("vm_optimize_done_restart") : t("vm_optimize_done"),
+        "success"
+      );
+      reload();
+    } catch (err: any) {
+      console.error(err);
+      showToastMessage(t("vm_optimize_err") + err.toString(), "error");
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
   const handleSaveXml = async () => {
     setSaving(true);
     try {
@@ -476,6 +494,26 @@ const VmSettingsTabComponent = ({
           disabled={!canEdit("tpm")}
           onChange={(e) => edit(setTpm)(e.target.checked)}
         />
+      </Field>
+      <Field label={t("vm_optimize_btn")} hint={t("vm_optimize_hint")}>
+        <button
+          className="btn-secondary"
+          disabled={optimizing}
+          onClick={handleOptimize}
+          style={{
+            padding: "0.5rem 1.25rem",
+            background: "linear-gradient(135deg, #24C6DC, #514A9D)",
+            border: "none",
+            borderRadius: "8px",
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: "0.9rem",
+            cursor: optimizing ? "wait" : "pointer",
+            opacity: optimizing ? 0.6 : 1,
+          }}
+        >
+          {t("vm_optimize_btn")}
+        </button>
       </Field>
     </div>
   );
