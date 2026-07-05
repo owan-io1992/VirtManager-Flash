@@ -72,6 +72,7 @@ export const VmConsoleTab = React.memo(({
               token={proxyToken}
               connectingLabel={t("console_connecting")}
               disconnectedLabel={t("console_disconnected")}
+              t={t}
             />
           )}
           {graphicsPort && proxyToken && graphicsProtocol === "spice" && (

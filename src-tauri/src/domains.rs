@@ -484,6 +484,10 @@ pub fn optimize_vm_for_app(name: String) -> Result<String, String> {
         insert_before_devices_close(&mut xml, "    <graphics type='vnc' autoport='yes' listen='127.0.0.1'>\n      <listen type='address' address='127.0.0.1'/>\n    </graphics>\n  ");
     }
 
+    if !xml.contains("type='qemu-vdagent'") {
+        insert_before_devices_close(&mut xml, "    <channel type='qemu-vdagent'>\n      <target type='virtio' name='com.redhat.spice.0'/>\n      <source>\n        <clipboard copypaste='yes'/>\n      </source>\n    </channel>\n  ");
+    }
+
     // Audio backend: none (SPICE audio would block VM startup without spice graphics)
     let had_audio = xml.contains("<audio");
     xml = remove_elements_containing(&xml, "audio", "type=");
@@ -500,6 +504,10 @@ pub fn optimize_vm_for_app(name: String) -> Result<String, String> {
         } else {
             break;
         }
+    }
+
+    if xml.contains("driver type='virtiofs'") || xml.contains("type='virtiofs'") {
+        xml = update_shared_memory_xml(&xml, true);
     }
 
     Domain::define_xml(&conn, &xml)
@@ -1175,6 +1183,39 @@ fn apply_cdroms_live(dom: &Domain, disks: &[DiskInfo]) -> Result<(), String> {
     Ok(())
 }
 
+fn update_shared_memory_xml(xml: &str, shared_memory: bool) -> String {
+    let mut xml = xml.to_string();
+    
+    // Remove existing memoryBacking if any
+    if let Some(start_idx) = xml.find("<memoryBacking>") {
+        if let Some(end_idx) = xml[start_idx..].find("</memoryBacking>") {
+            let actual_end = start_idx + end_idx + "</memoryBacking>".len();
+            xml.replace_range(start_idx..actual_end, "");
+        }
+    } else if let Some(idx) = xml.find("<memoryBacking/>") {
+        xml.replace_range(idx..idx + "<memoryBacking/>".len(), "");
+    }
+    
+    if shared_memory {
+        // Insert memoryBacking right after currentMemory or memory
+        let insert_marker = if xml.contains("</currentMemory>") {
+            "</currentMemory>"
+        } else if xml.contains("</memory>") {
+            "</memory>"
+        } else {
+            "<domain"
+        };
+        
+        if let Some(pos) = xml.find(insert_marker) {
+            let insert_pos = pos + insert_marker.len();
+            let insert_str = "\n  <memoryBacking>\n    <source type='memfd'/>\n    <access mode='shared'/>\n  </memoryBacking>";
+            xml.insert_str(insert_pos, insert_str);
+        }
+    }
+    
+    xml
+}
+
 // Apply the source/model edits of the NIC list to a running domain, one device at
 // a time, so changes take effect live (and persist to config). Whitelisted because
 // libvirt supports hot-updating interfaces while other devices cannot change live.
@@ -1226,6 +1267,7 @@ pub fn update_vm_settings(
     secure_boot: bool,
     tpm: bool,
     filesystems: Vec<FilesystemInfo>,
+    shared_memory: bool,
 ) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -1350,6 +1392,7 @@ pub fn update_vm_settings(
     // Modify Secure Boot and TPM
     xml = update_secure_boot_xml(&xml, secure_boot);
     xml = update_tpm_xml(&xml, tpm);
+    xml = update_shared_memory_xml(&xml, shared_memory);
 
     // Modify filesystems
     xml = update_filesystems_xml(&xml, &filesystems);
@@ -1491,6 +1534,7 @@ pub struct VmSettings {
     pub secure_boot: bool,
     pub tpm: bool,
     pub filesystems: Vec<FilesystemInfo>,
+    pub shared_memory: bool,
 }
 
 // VirtManager-Flash-owned metadata namespace for tagging a VM's OS family
@@ -1725,6 +1769,7 @@ pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
     let autostart = dom.get_autostart().unwrap_or(false);
     let secure_boot = xml.contains("secure-boot");
     let tpm = xml.contains("<tpm");
+    let shared_memory = xml.contains("<memoryBacking>") && (xml.contains("mode='shared'") || xml.contains("pages='yes'"));
 
     Ok(VmSettings {
         name,
@@ -1751,6 +1796,7 @@ pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
         secure_boot,
         tpm,
         filesystems: parse_filesystems(&xml),
+        shared_memory,
     })
 }
 

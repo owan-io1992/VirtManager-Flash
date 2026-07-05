@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import "./App.css";
 
 // Modular components
@@ -135,12 +136,70 @@ function App() {
   const [graphicsError, setGraphicsError] = useState<string | null>(null);
   const [graphicsLoading, setGraphicsLoading] = useState(false);
   const [proxyToken, setProxyToken] = useState<string>("");
+  const [clipboardMsg, setClipboardMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   useEffect(() => {
     invoke<string>("get_proxy_token")
       .then((token) => setProxyToken(token))
       .catch((err) => console.error("Failed to fetch proxy token:", err));
   }, []);
+
+  useEffect(() => {
+    if (!clipboardMsg) return;
+    const timer = setTimeout(() => setClipboardMsg(null), 3000);
+    return () => clearTimeout(timer);
+  }, [clipboardMsg]);
+
+  useEffect(() => {
+    const handleStatus = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) {
+        setClipboardMsg(detail);
+      }
+    };
+    window.addEventListener("clipboard-status", handleStatus);
+    return () => window.removeEventListener("clipboard-status", handleStatus);
+  }, []);
+
+  const lastCopiedTextRef = useRef<string>("");
+
+  // Listen to guest-copied event to prevent loopback sync
+  useEffect(() => {
+    const handleGuestCopied = (e: Event) => {
+      lastCopiedTextRef.current = (e as CustomEvent).detail;
+    };
+    window.addEventListener("guest-copied", handleGuestCopied);
+    return () => window.removeEventListener("guest-copied", handleGuestCopied);
+  }, []);
+
+  // Auto-sync host clipboard to VM
+  useEffect(() => {
+    if (activeTab !== "console" || !graphicsPort) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const text = await readText();
+        if (text && text !== lastCopiedTextRef.current) {
+          lastCopiedTextRef.current = text;
+          window.dispatchEvent(new CustomEvent("paste-to-vm", { detail: text }));
+        }
+      } catch (e) {
+        // Suppress reading errors during background auto-sync
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, graphicsPort]);
+
+  const handleSendClipboard = async () => {
+    try {
+      const text = await readText();
+      window.dispatchEvent(new CustomEvent("paste-to-vm", { detail: text }));
+      setClipboardMsg({ text: t("console_clipboard_sent_success"), isError: false });
+    } catch (err) {
+      setClipboardMsg({ text: t("console_clipboard_sent_error", { error: String(err) }), isError: true });
+    }
+  };
 
   // CPU usage tracking state & ref
   const [cpuUsage, setCpuUsage] = useState<{ [name: string]: number }>({});
@@ -942,13 +1001,75 @@ function App() {
                   selectedVm?.state === 1 &&
                   graphicsPort &&
                   graphicsError !== "SPICE_GL_NO_PORT" && (
-                    <button
-                      className="tab-item"
-                      style={{ marginLeft: "auto" }}
-                      onClick={() => invoke("open_viewer", { name: selectedVm.name })}
-                    >
-                      {t("console_open_viewer")}
-                    </button>
+                    <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      {clipboardMsg && (
+                        <span style={{
+                          color: clipboardMsg.isError ? "#F87171" : "#10B981",
+                          fontSize: "0.8rem",
+                          marginRight: "0.5rem",
+                          animation: "fadeIn 0.2s ease-out",
+                        }}>
+                          {clipboardMsg.text}
+                        </span>
+                      )}
+                      {graphicsProtocol === "vnc" && (
+                        <button
+                          className="tab-item"
+                          onClick={handleSendClipboard}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.3rem",
+                            border: "1px solid rgba(36, 198, 220, 0.4)",
+                            borderRadius: "6px",
+                            padding: "0.25rem 0.6rem",
+                            color: "#24C6DC",
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            lineHeight: "1",
+                            alignSelf: "center",
+                            marginBottom: "0.25rem",
+                            transition: "all 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.background = "rgba(36, 198, 220, 0.1)";
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(36, 198, 220, 0.6)";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(36, 198, 220, 0.4)";
+                          }}
+                        >
+                          📋 {t("console_clipboard_send")}
+                        </button>
+                      )}
+                      <button
+                        className="tab-item"
+                        style={{
+                          border: "1px solid rgba(36, 198, 220, 0.4)",
+                          borderRadius: "6px",
+                          padding: "0.25rem 0.6rem",
+                          color: "#24C6DC",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          lineHeight: "1",
+                          alignSelf: "center",
+                          marginBottom: "0.25rem",
+                          transition: "all 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = "rgba(36, 198, 220, 0.1)";
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(36, 198, 220, 0.6)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(36, 198, 220, 0.4)";
+                        }}
+                        onClick={() => invoke("open_viewer", { name: selectedVm.name })}
+                      >
+                        {t("console_open_viewer")}
+                      </button>
+                    </div>
                   )}
               </div>
             )}

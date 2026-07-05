@@ -54,6 +54,7 @@ export interface VmSettings {
   secure_boot: boolean;
   tpm: boolean;
   filesystems: FilesystemInfo[];
+  shared_memory: boolean;
 }
 
 export interface FilesystemInfo {

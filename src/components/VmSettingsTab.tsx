@@ -174,6 +174,7 @@ const VmSettingsTabComponent = ({
   const [nics, setNics] = useState<NicInfo[]>([]);
   const [secureBoot, setSecureBoot] = useState(false);
   const [tpm, setTpm] = useState(false);
+  const [sharedMemory, setSharedMemory] = useState(false);
   const [filesystems, setFilesystems] = useState<FilesystemInfo[]>([]);
   const [instructionsTab, setInstructionsTab] = useState<"linux" | "windows">("linux");
 
@@ -228,6 +229,7 @@ const VmSettingsTabComponent = ({
     setSecureBoot(s.secure_boot || false);
     setTpm(s.tpm || false);
     setFilesystems(s.filesystems || []);
+    setSharedMemory(s.shared_memory || false);
     setDirty(false);
   };
 
@@ -370,7 +372,13 @@ const VmSettingsTabComponent = ({
   };
 
   const updateFilesystem = (index: number, patch: Partial<FilesystemInfo>) => {
-    setFilesystems((prev) => prev.map((fs, i) => (i === index ? { ...fs, ...patch } : fs)));
+    setFilesystems((prev) => {
+      const next = prev.map((fs, i) => (i === index ? { ...fs, ...patch } : fs));
+      if (next.some((fs) => fs.driver === "virtiofs")) {
+        setSharedMemory(true);
+      }
+      return next;
+    });
     setDirty(true);
   };
 
@@ -426,6 +434,7 @@ const VmSettingsTabComponent = ({
         secureBoot,
         tpm,
         filesystems,
+        sharedMemory,
       });
       const renamed = isStopped && vmName.trim() && vmName.trim() !== selectedVm.name;
       if (!renamed) {
@@ -527,6 +536,15 @@ const VmSettingsTabComponent = ({
           checked={tpm}
           disabled={!canEdit("tpm")}
           onChange={(e) => edit(setTpm)(e.target.checked)}
+        />
+      </Field>
+      <Field label={t("vm_shared_memory")} hint={t("vm_shared_memory_hint")}>
+        <input
+          type="checkbox"
+          className="form-checkbox"
+          checked={sharedMemory}
+          disabled={!canEdit("shared_memory")}
+          onChange={(e) => edit(setSharedMemory)(e.target.checked)}
         />
       </Field>
       <Field label={t("vm_optimize_btn")} hint={t("vm_optimize_hint")}>

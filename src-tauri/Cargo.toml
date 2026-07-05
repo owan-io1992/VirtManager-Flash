@@ -29,6 +29,7 @@ futures-util = "0.3"
 tokio = { version = "1.38", features = ["full"] }
 rand = "0.8"
 rfd = "0.15"
+tauri-plugin-clipboard-manager = "2"
 
 # Optimized release profile (see https://v2.tauri.app/concept/size/)
 [profile.release]
