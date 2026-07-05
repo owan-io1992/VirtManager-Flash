@@ -1,6 +1,6 @@
 import { useState, useEffect, ReactNode, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { DomainItem, NetworkItem, SystemResources, VmSettings, DiskInfo, NicInfo, StoragePoolItem, parseSizeToGb, parseSizeAndUnit } from "../types";
+import { DomainItem, NetworkItem, SystemResources, VmSettings, DiskInfo, NicInfo, StoragePoolItem, parseSizeToGb, parseSizeAndUnit, FilesystemInfo } from "../types";
 import { TranslationKey } from "../translations";
 
 interface VmSettingsTabProps {
@@ -13,7 +13,7 @@ interface VmSettingsTabProps {
 }
 
 type EditorMode = "form" | "xml";
-type Category = "general" | "system" | "storage" | "network";
+type Category = "general" | "system" | "storage" | "network" | "sharing";
 type SystemSubtab = "motherboard" | "processor";
 
 // Inline stroke icons matching the project's SidebarHeader style
@@ -49,6 +49,14 @@ const icons: Record<Category, ReactNode> = {
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   ),
+  sharing: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="14" r="3" />
+      <path d="M12 11v6" />
+      <path d="M9 14h6" />
+    </svg>
+  ),
 };
 
 const categoryLabel: Record<Category, TranslationKey> = {
@@ -56,9 +64,10 @@ const categoryLabel: Record<Category, TranslationKey> = {
   system: "vm_cat_system",
   storage: "vm_settings_storage",
   network: "vm_settings_network",
+  sharing: "vm_settings_sharing",
 };
 
-const CATEGORIES: Category[] = ["general", "system", "storage", "network"];
+const CATEGORIES: Category[] = ["general", "system", "storage", "network", "sharing"];
 
 // A labelled settings row with optional hint.
 // Defined at module scope so its identity is stable across renders — otherwise
@@ -165,6 +174,8 @@ const VmSettingsTabComponent = ({
   const [nics, setNics] = useState<NicInfo[]>([]);
   const [secureBoot, setSecureBoot] = useState(false);
   const [tpm, setTpm] = useState(false);
+  const [filesystems, setFilesystems] = useState<FilesystemInfo[]>([]);
+  const [instructionsTab, setInstructionsTab] = useState<"linux" | "windows">("linux");
 
   // XML editor state
   const [xmlText, setXmlText] = useState("");
@@ -216,6 +227,7 @@ const VmSettingsTabComponent = ({
     setNics(s.nics);
     setSecureBoot(s.secure_boot || false);
     setTpm(s.tpm || false);
+    setFilesystems(s.filesystems || []);
     setDirty(false);
   };
 
@@ -341,6 +353,27 @@ const VmSettingsTabComponent = ({
     setDirty(true);
   };
 
+  const addFilesystem = () => {
+    const newFs: FilesystemInfo = {
+      source_dir: "",
+      target_dir: `shared_folder_${filesystems.length + 1}`,
+      readonly: false,
+      driver: "9p",
+    };
+    setFilesystems([...filesystems, newFs]);
+    setDirty(true);
+  };
+
+  const removeFilesystem = (index: number) => {
+    setFilesystems(filesystems.filter((_, i) => i !== index));
+    setDirty(true);
+  };
+
+  const updateFilesystem = (index: number, patch: Partial<FilesystemInfo>) => {
+    setFilesystems((prev) => prev.map((fs, i) => (i === index ? { ...fs, ...patch } : fs)));
+    setDirty(true);
+  };
+
   const reload = () => {
     setLoading(true);
     setLoadError(null);
@@ -392,6 +425,7 @@ const VmSettingsTabComponent = ({
         nics,
         secureBoot,
         tpm,
+        filesystems,
       });
       const renamed = isStopped && vmName.trim() && vmName.trim() !== selectedVm.name;
       if (!renamed) {
@@ -1087,6 +1121,191 @@ const VmSettingsTabComponent = ({
     </div>
   );
 
+  const renderSharing = () => (
+    <div className="settings-group">
+      <div className="settings-info-banner" style={{ display: "flex", gap: "8px", alignItems: "center", padding: "10px 14px", backgroundColor: "rgba(36, 198, 220, 0.1)", borderLeft: "3px solid #24C6DC", borderRadius: "4px", marginBottom: "1rem", fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#24C6DC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: "16px", height: "16px", flexShrink: 0 }}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        <span>{t("vm_sharing_desc")}</span>
+      </div>
+      {filesystems.length === 0 && <div className="settings-empty">{t("vm_sharing_empty")}</div>}
+      {filesystems.map((fs, i) => (
+        <div className="device-card" key={`fs-${i}`}>
+          <div className="device-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              {t("vm_settings_sharing")} {i + 1}
+              <span className="device-card-badge" style={{ marginLeft: "8px" }}>
+                {fs.target_dir || "?"}
+              </span>
+            </div>
+            {isStopped && (
+              <button
+                type="button"
+                className="btn-reset-settings"
+                style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#EF4444" }}
+                onClick={() => removeFilesystem(i)}
+              >
+                {t("vm_remove")}
+              </button>
+            )}
+          </div>
+
+          <Field label={t("vm_f_source_dir")}>
+            <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+              <input
+                type="text"
+                className="form-input"
+                value={fs.source_dir}
+                placeholder={t("vm_f_source_dir_placeholder")}
+                disabled={!isStopped}
+                onChange={(e) => updateFilesystem(i, { source_dir: e.target.value })}
+                style={{ flexGrow: 1 }}
+              />
+              <button
+                type="button"
+                className="btn-reset-settings"
+                style={{ padding: "0 0.75rem", display: "flex", alignItems: "center", gap: "4px" }}
+                disabled={!isStopped}
+                onClick={async () => {
+                  try {
+                    const selected = await invoke<string | null>("select_directory");
+                    if (selected) {
+                      updateFilesystem(i, { source_dir: selected });
+                    }
+                  } catch (err: any) {
+                    console.error("Failed to select directory:", err);
+                    showToastMessage(err.toString(), "error");
+                  }
+                }}
+              >
+                📁 {t("vm_btn_browse")}
+              </button>
+            </div>
+          </Field>
+
+          <Field label={t("vm_f_target_dir")}>
+            <input
+              type="text"
+              className="form-input"
+              value={fs.target_dir}
+              placeholder={t("vm_f_target_dir_placeholder")}
+              disabled={!isStopped}
+              onChange={(e) => updateFilesystem(i, { target_dir: e.target.value })}
+            />
+          </Field>
+
+          <Field label={t("vm_f_driver")}>
+            <select
+              className="form-select"
+              value={fs.driver || "9p"}
+              disabled={!isStopped}
+              onChange={(e) => updateFilesystem(i, { driver: e.target.value })}
+            >
+              <option value="9p">{t("vm_driver_9p")}</option>
+              <option value="virtiofs">{t("vm_driver_virtiofs")}</option>
+            </select>
+          </Field>
+
+          <Field label={t("vm_f_readonly")}>
+            <input
+              type="checkbox"
+              className="form-checkbox"
+              checked={fs.readonly}
+              disabled={!isStopped}
+              onChange={(e) => updateFilesystem(i, { readonly: e.target.checked })}
+            />
+          </Field>
+        </div>
+      ))}
+
+      {/* Mount Instructions Section */}
+      <div className="device-card" style={{ marginTop: "2rem", borderTop: "2px solid #24C6DC", background: "var(--color-bg-card-alt, rgba(36, 198, 220, 0.03))" }}>
+        <div className="device-card-title" style={{ color: "#24C6DC", borderBottom: "1px solid rgba(36, 198, 220, 0.15)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
+          📖 {t("vm_sharing_instructions")}
+        </div>
+
+        {/* Tab buttons */}
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+          <button
+            type="button"
+            className={`settings-subtab ${instructionsTab === "linux" ? "active" : ""}`}
+            onClick={() => setInstructionsTab("linux")}
+            style={{ padding: "0.4rem 1rem", fontSize: "0.85rem", border: "1px solid rgba(36, 198, 220, 0.3)", borderRadius: "4px" }}
+          >
+            🐧 {t("vm_sharing_linux")}
+          </button>
+          <button
+            type="button"
+            className={`settings-subtab ${instructionsTab === "windows" ? "active" : ""}`}
+            onClick={() => setInstructionsTab("windows")}
+            style={{ padding: "0.4rem 1rem", fontSize: "0.85rem", border: "1px solid rgba(36, 198, 220, 0.3)", borderRadius: "4px" }}
+          >
+            🪟 {t("vm_sharing_windows")}
+          </button>
+        </div>
+
+        {instructionsTab === "linux" ? (
+          <div>
+            <p style={{ fontSize: "0.875rem", marginBottom: "0.75rem", color: "var(--color-text-secondary)" }}>
+              {t("vm_sharing_linux_mount_desc")}
+            </p>
+            {filesystems.length === 0 ? (
+              <div style={{ fontStyle: "italic", fontSize: "0.85rem", color: "var(--color-text-hint)" }}>
+                ({t("vm_sharing_empty")})
+              </div>
+            ) : (
+              filesystems.map((fs, idx) => {
+                const tag = fs.target_dir || `shared_folder_${idx + 1}`;
+                const cmd = fs.driver === "virtiofs"
+                  ? `sudo mount -t virtiofs ${tag} /mnt/shared`
+                  : `sudo mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 ${tag} /mnt/shared`;
+                return (
+                  <div key={`inst-${idx}`} style={{ marginBottom: "1rem" }}>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", marginBottom: "0.25rem", color: "var(--color-text-secondary)" }}>
+                      📂 {tag} ({fs.driver}) :
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", background: "rgba(0,0,0,0.2)", padding: "0.5rem 0.75rem", borderRadius: "4px", fontFamily: "monospace", fontSize: "0.85rem", border: "1px solid rgba(255,255,255,0.05)", overflowX: "auto" }}>
+                      <span style={{ flexGrow: 1, whiteSpace: "nowrap", color: "#f8f8f2", lineHeight: "1.4", paddingBottom: "2px" }}>{cmd}</span>
+                      <button
+                        type="button"
+                        className="mac-copy-btn"
+                        onClick={() => {
+                          navigator.clipboard.writeText(cmd);
+                          showToastMessage(t("vm_mac_copied"), "success");
+                        }}
+                        style={{ border: "none", background: "none", color: "#24C6DC", cursor: "pointer", display: "flex", padding: "4px" }}
+                        title="Copy"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: "14px", height: "14px" }}>
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", lineHeight: "1.6" }}>
+            <p style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>
+              {t("vm_sharing_windows_mount_desc")}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", background: "rgba(0,0,0,0.1)", padding: "1rem", borderRadius: "4px", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div>{t("vm_sharing_windows_step1")}</div>
+              <div>{t("vm_sharing_windows_step2")}</div>
+              <div>{t("vm_sharing_windows_step3")}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   const renderFormContent = () => {
     switch (category) {
       case "general":
@@ -1097,6 +1316,8 @@ const VmSettingsTabComponent = ({
         return renderStorage();
       case "network":
         return renderNetwork();
+      case "sharing":
+        return renderSharing();
     }
   };
 
@@ -1181,6 +1402,16 @@ const VmSettingsTabComponent = ({
                     onClick={addNic}
                   >
                     + {t("vm_add_interface")}
+                  </button>
+                )}
+                {isStopped && category === "sharing" && (
+                  <button
+                    type="button"
+                    className="btn-reset-settings"
+                    style={{ borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC", marginRight: "0.25rem" }}
+                    onClick={addFilesystem}
+                  >
+                    {t("vm_add_sharing")}
                   </button>
                 )}
                 <button

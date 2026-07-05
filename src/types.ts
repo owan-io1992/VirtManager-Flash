@@ -53,6 +53,14 @@ export interface VmSettings {
   nics: NicInfo[];
   secure_boot: boolean;
   tpm: boolean;
+  filesystems: FilesystemInfo[];
+}
+
+export interface FilesystemInfo {
+  source_dir: string;
+  target_dir: string;
+  readonly: boolean;
+  driver: string; // "9p" | "virtiofs"
 }
 
 export interface Folder {

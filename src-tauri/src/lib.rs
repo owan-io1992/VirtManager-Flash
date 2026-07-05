@@ -136,7 +136,8 @@ pub fn run() {
             storage::delete_volume,
             storage::resize_volume,
             system::set_libvirt_uri,
-            system::get_libvirt_uri
+            system::get_libvirt_uri,
+            system::select_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

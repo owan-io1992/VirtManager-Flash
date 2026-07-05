@@ -1065,6 +1065,62 @@ fn update_tpm_xml(xml: &str, enable: bool) -> String {
     new_xml
 }
 
+fn update_filesystems_xml(xml: &str, filesystems: &[FilesystemInfo]) -> String {
+    // Delete or Update existing filesystems
+    let updated_xml = map_blocks(xml, "<filesystem", "</filesystem>", |block| {
+        let target_dir = match get_attr_in_block(block, "<target", "dir") {
+            Some(t) => t,
+            None => return block.to_string(),
+        };
+        match filesystems.iter().find(|f| f.target_dir == target_dir) {
+            Some(fs) => {
+                let driver_tag = if fs.driver == "virtiofs" { "\n      <driver type='virtiofs'/>" } else { "" };
+                let readonly_tag = if fs.readonly { "\n      <readonly/>" } else { "" };
+                format!(
+                    "    <filesystem type='mount' accessmode='passthrough'>{}\n      <source dir='{}'/>\n      <target dir='{}'/>{}\n    </filesystem>\n",
+                    driver_tag, fs.source_dir, fs.target_dir, readonly_tag
+                )
+            }
+            None => "".to_string(), // Delete this block
+        }
+    });
+
+    // Add new filesystems
+    let mut new_fs_xml = String::new();
+    for fs in filesystems {
+        let mut exists = false;
+        for block in collect_blocks(&updated_xml, "<filesystem", "</filesystem>") {
+            if let Some(td) = get_attr_in_block(&block, "<target", "dir") {
+                if td == fs.target_dir {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+        if !exists {
+            let driver_tag = if fs.driver == "virtiofs" { "\n      <driver type='virtiofs'/>" } else { "" };
+            let readonly_tag = if fs.readonly { "\n      <readonly/>" } else { "" };
+            let fs_block = format!(
+                "    <filesystem type='mount' accessmode='passthrough'>{}\n      <source dir='{}'/>\n      <target dir='{}'/>{}\n    </filesystem>\n",
+                driver_tag, fs.source_dir, fs.target_dir, readonly_tag
+            );
+            new_fs_xml.push_str(&fs_block);
+        }
+    }
+
+    if !new_fs_xml.is_empty() {
+        if let Some(devices_idx) = updated_xml.find("</devices>") {
+            let mut final_xml = String::new();
+            final_xml.push_str(&updated_xml[..devices_idx]);
+            final_xml.push_str(&new_fs_xml);
+            final_xml.push_str(&updated_xml[devices_idx..]);
+            return final_xml;
+        }
+    }
+
+    updated_xml
+}
+
 // Change the ISO media for any cdrom devices on a running domain. libvirt supports
 // updating cdrom source live via virDomainUpdateDeviceFlags without powering off.
 fn apply_cdroms_live(dom: &Domain, disks: &[DiskInfo]) -> Result<(), String> {
@@ -1169,6 +1225,7 @@ pub fn update_vm_settings(
     nics: Vec<NicInfo>,
     secure_boot: bool,
     tpm: bool,
+    filesystems: Vec<FilesystemInfo>,
 ) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &name)
@@ -1294,6 +1351,9 @@ pub fn update_vm_settings(
     xml = update_secure_boot_xml(&xml, secure_boot);
     xml = update_tpm_xml(&xml, tpm);
 
+    // Modify filesystems
+    xml = update_filesystems_xml(&xml, &filesystems);
+
     // Redefine domain with new XML to persist configurations
     Domain::define_xml(&conn, &xml)
         .map_err(|e| format!("Failed to save VM configuration XML: {}", e))?;
@@ -1401,6 +1461,14 @@ pub struct NicInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct FilesystemInfo {
+    pub source_dir: String,
+    pub target_dir: String,
+    pub readonly: bool,
+    pub driver: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct VmSettings {
     pub name: String,
     pub vcpu: u32,
@@ -1422,6 +1490,7 @@ pub struct VmSettings {
     pub nics: Vec<NicInfo>,
     pub secure_boot: bool,
     pub tpm: bool,
+    pub filesystems: Vec<FilesystemInfo>,
 }
 
 // VirtManager-Flash-owned metadata namespace for tagging a VM's OS family
@@ -1520,6 +1589,28 @@ fn parse_nics(xml: &str) -> Vec<NicInfo> {
             };
             let model = get_attr_in_block(block, "<model", "type").unwrap_or_default();
             NicInfo { mac, source, source_type, model }
+        })
+        .collect()
+}
+
+fn parse_filesystems(xml: &str) -> Vec<FilesystemInfo> {
+    collect_blocks(xml, "<filesystem", "</filesystem>")
+        .iter()
+        .map(|block| {
+            let source_dir = get_attr_in_block(block, "<source", "dir").unwrap_or_default();
+            let target_dir = get_attr_in_block(block, "<target", "dir").unwrap_or_default();
+            let readonly = block.contains("<readonly");
+            let driver = if block.contains("type='virtiofs'") || block.contains("type=\"virtiofs\"") {
+                "virtiofs".to_string()
+            } else {
+                "9p".to_string()
+            };
+            FilesystemInfo {
+                source_dir,
+                target_dir,
+                readonly,
+                driver,
+            }
         })
         .collect()
 }
@@ -1659,6 +1750,7 @@ pub fn get_vm_settings(name: String) -> Result<VmSettings, String> {
         nics: parsed_nics,
         secure_boot,
         tpm,
+        filesystems: parse_filesystems(&xml),
     })
 }
 
@@ -1743,6 +1835,10 @@ pub fn create_vm(
   <name>{name}</name>
   <memory unit='KiB'>{memory_kb}</memory>
   <currentMemory unit='KiB'>{memory_kb}</currentMemory>
+  <memoryBacking>
+    <source type='memfd'/>
+    <access mode='shared'/>
+  </memoryBacking>
   <vcpu placement='static'>{vcpu}</vcpu>
   <os{os_firmware_attr}>
     <type arch='x86_64' machine='q35'>hvm</type>{firmware_block}

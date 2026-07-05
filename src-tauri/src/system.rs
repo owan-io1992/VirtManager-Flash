@@ -134,3 +134,10 @@ pub fn set_libvirt_uri(uri: String) -> Result<(), String> {
 pub fn get_libvirt_uri() -> String {
     crate::LIBVIRT_URI.lock().unwrap().clone().unwrap_or_else(|| "qemu:///system".to_string())
 }
+
+#[tauri::command(async)]
+pub fn select_directory() -> Result<Option<String>, String> {
+    let folder = rfd::FileDialog::new()
+        .pick_folder();
+    Ok(folder.map(|p| p.to_string_lossy().into_owned()))
+}

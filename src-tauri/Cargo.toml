@@ -28,6 +28,7 @@ futures-util = "0.3"
 # Allow patch version updates for security patches
 tokio = { version = "1.38", features = ["full"] }
 rand = "0.8"
+rfd = "0.15"
 
 # Optimized release profile (see https://v2.tauri.app/concept/size/)
 [profile.release]
