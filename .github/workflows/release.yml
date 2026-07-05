@@ -37,21 +37,21 @@ jobs:
           - arch: amd64
             runs-on: ubuntu-22.04
             os_label: ubuntu22
-          - arch: arm64
-            runs-on: ubuntu-22.04-arm
-            os_label: ubuntu22
+          # - arch: arm64
+          #   runs-on: ubuntu-22.04-arm
+          #   os_label: ubuntu22
           - arch: amd64
             runs-on: ubuntu-24.04
             os_label: ubuntu24
-          - arch: arm64
-            runs-on: ubuntu-24.04-arm
-            os_label: ubuntu24
+          # - arch: arm64
+          #   runs-on: ubuntu-24.04-arm
+          #   os_label: ubuntu24
           - arch: amd64
             runs-on: ubuntu-26.04
             os_label: ubuntu26
-          - arch: arm64
-            runs-on: ubuntu-26.04-arm
-            os_label: ubuntu26
+          # - arch: arm64
+          #   runs-on: ubuntu-26.04-arm
+          #   os_label: ubuntu26
 
     steps:
       - name: Checkout repository
