@@ -20,6 +20,7 @@ pub fn list_iso_files() -> Result<Vec<IsoFile>, String> {
         if !pool.is_active().unwrap_or(false) {
             continue;
         }
+        let _ = pool.refresh(0);
         let pool_name = pool.get_name().unwrap_or_default();
         if let Ok(vols) = pool.list_all_volumes(0) {
             for vol in vols {
@@ -148,6 +149,7 @@ pub fn list_storage_pools() -> Result<Vec<StoragePoolItem>, String> {
         
         let mut volumes = Vec::new();
         if is_active {
+            let _ = pool.refresh(0);
             if let Ok(vols) = pool.list_all_volumes(0) {
                 for vol in vols {
                     let vol_name = vol.get_name().unwrap_or_else(|_| "unknown".to_string());

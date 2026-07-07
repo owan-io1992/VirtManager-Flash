@@ -21,7 +21,7 @@ export const AboutModal = ({
   return (
     <div className="preferences-modal-overlay" style={{ zIndex: 10000 }}>
       <div className="preferences-modal" style={{ maxWidth: "420px", height: "auto", maxHeight: "580px" }}>
-        <div className="preferences-modal-header" style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)" }}>
+        <div className="preferences-modal-header">
           <span className="preferences-modal-title">
             {isZh ? "關於此應用程式" : "About Application"}
           </span>
@@ -50,81 +50,43 @@ export const AboutModal = ({
           </div>
 
           {/* App Name */}
-          <h2 style={{
-            fontSize: "1.5rem",
-            margin: "0 0 0.25rem 0",
-            fontWeight: 800,
-            background: "linear-gradient(135deg, #FFF 30%, #24C6DC 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}>
+          <h2 className="about-app-title">
             VirtManager-Flash
           </h2>
 
           {/* Version */}
-          <div style={{
-            fontSize: "0.85rem",
-            fontFamily: "monospace",
-            color: "#24C6DC",
-            marginBottom: "1rem",
-            background: "rgba(36, 198, 220, 0.1)",
-            padding: "0.2rem 0.6rem",
-            borderRadius: "4px",
-            display: "inline-block"
-          }}>
+          <div className="about-version">
             v{__APP_VERSION__}
           </div>
 
           {/* Description */}
-          <p style={{
-            fontSize: "0.85rem",
-            color: "#94A3B8",
-            lineHeight: "1.5",
-            margin: "0 0 1.5rem 0",
-            padding: "0 0.5rem"
-          }}>
+          <p className="about-description">
             {isZh
               ? "一個使用 Tauri、React 與 Rust 打造的極速、現代化 KVM/libvirt 虛擬機管理工具。"
               : "A lightning-fast, modern KVM/libvirt virtual machine manager built with Tauri, React, and Rust."}
           </p>
 
           {/* Details / Link */}
-          <div style={{
-            borderTop: "1px solid rgba(255, 255, 255, 0.05)",
-            paddingTop: "1.25rem",
-            textAlign: "left",
-            fontSize: "0.8rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.6rem",
-            width: "100%"
-          }}>
+          <div className="about-details">
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "#64748B" }}>GitHub</span>
               <a
                 href="https://github.com/owan-io1992/VirtManager-Flash"
                 target="_blank"
                 rel="noreferrer"
-                style={{
-                  color: "#24C6DC",
-                  textDecoration: "none",
-                  fontWeight: 500,
-                  transition: "opacity 0.2s"
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.opacity = "0.8")}
-                onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+                className="about-link"
               >
                 owan-io1992/VirtManager-Flash
               </a>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "#64748B" }}>{isZh ? "授權條款" : "License"}</span>
-              <span style={{ color: "#E2E8F0" }}>MIT License</span>
+              <span className="about-detail-val">MIT License</span>
             </div>
           </div>
         </div>
 
-        <div className="preferences-modal-footer" style={{ borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+        <div className="preferences-modal-footer">
           <button
             className="btn-save-settings"
             style={{ margin: 0, width: "100%" }}

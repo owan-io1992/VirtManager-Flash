@@ -941,9 +941,11 @@ const VmSettingsTabComponent = ({
               <select
                 className="form-select"
                 disabled={!isStopped && !isCdrom}
-                value={isExistingVol ? filename : "__custom__"}
+                value={isCdrom && disk.path === "" ? "__eject__" : (isExistingVol ? filename : "__custom__")}
                 onChange={(e) => {
-                  if (e.target.value === "__custom__") {
+                  if (e.target.value === "__eject__") {
+                    updateDisk(i, { path: "" });
+                  } else if (e.target.value === "__custom__") {
                     // Keep filename as-is, let user type it
                   } else {
                     const newPath = activePool.location + "/" + e.target.value;
@@ -958,6 +960,11 @@ const VmSettingsTabComponent = ({
                   }
                 }}
               >
+                {isCdrom && (
+                  <option value="__eject__">
+                    {t("vm_eject_media")}
+                  </option>
+                )}
                 {activePool.volumes
                   .filter(v => {
                     const isIso = v.name.toLowerCase().endsWith(".iso");
@@ -969,13 +976,15 @@ const VmSettingsTabComponent = ({
                     </option>
                   ))
                 }
-                <option value="__custom__">
-                  {t("vm_custom_vol")}
-                </option>
+                {!isCdrom && (
+                  <option value="__custom__">
+                    {t("vm_custom_vol")}
+                  </option>
+                )}
               </select>
             </Field>
 
-            {(!isExistingVol || filename === "" || disk.path === "") && (
+            {!isCdrom && (!isExistingVol || filename === "" || disk.path === "") && (
               <Field label={t("vm_custom_filename")}>
                 <input
                   type="text"
@@ -991,7 +1000,7 @@ const VmSettingsTabComponent = ({
               </Field>
             )}
 
-            {(() => {
+            {!isCdrom && (() => {
               const volSizeInfo = isExistingVol
                 ? parseSizeAndUnit(activePool.volumes.find(v => v.name === filename)?.size || "")
                 : { value: disk.capacity_gb, unit: "GB" };
@@ -1000,9 +1009,9 @@ const VmSettingsTabComponent = ({
                   <input
                     type="number"
                     className="form-input"
-                    value={isCdrom ? volSizeInfo.value : disk.capacity_gb}
+                    value={disk.capacity_gb}
                     min={Math.max(1, orig?.capacity_gb ?? 1)}
-                    disabled={!isStopped || isCdrom}
+                    disabled={!isStopped}
                     onChange={(e) => updateDisk(i, { capacity_gb: Number(e.target.value) })}
                   />
                 </Field>

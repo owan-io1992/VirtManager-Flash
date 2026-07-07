@@ -17,6 +17,7 @@ import { VmSnapshotsTab } from "./components/VmSnapshotsTab";
 import { VmBatchView } from "./components/VmBatchView";
 import { VmContextMenu } from "./components/VmContextMenu";
 import { CreateVmWizard } from "./components/CreateVmWizard";
+import { CloneVmModal } from "./components/CloneVmModal";
 
 // Common types & translations
 import { DomainItem, Folder, NetworkItem, StoragePoolItem, SystemResources } from "./types";
@@ -95,6 +96,7 @@ function App() {
   const [networks, setNetworks] = useState<NetworkItem[]>([]);
   const [storagePools, setStoragePools] = useState<StoragePoolItem[]>([]);
   const [showCreateVmWizard, setShowCreateVmWizard] = useState(false);
+  const [cloneVmTarget, setCloneVmTarget] = useState<string | null>(null);
 
   // Sync state changes with localStorage
   useEffect(() => {
@@ -221,6 +223,9 @@ function App() {
   // Guest agent availability per VM name
   const [guestAgentAvailable, setGuestAgentAvailable] = useState<{ [name: string]: boolean }>({});
 
+  // IP addresses per VM name
+  const [vmIps, setVmIps] = useState<{ [name: string]: string[] }>({});
+
   // 10 mins metrics history (300 points at 2s interval)
   const [metricsHistory, setMetricsHistory] = useState<{
     [vmName: string]: { 
@@ -278,6 +283,34 @@ function App() {
     try {
       const list = await invoke<DomainItem[]>("list_domains", { includeStats: metricsEnabledRef.current });
       
+      const selectedVmName = selectedVmNames[0];
+      if (selectedVmName && activeTab === "status") {
+        const selectedVmInfo = list.find((vm) => vm.name === selectedVmName);
+        if (selectedVmInfo && selectedVmInfo.state === 1) {
+          invoke<string[]>("get_vm_ip_addresses", { name: selectedVmName })
+            .then((ips) => {
+              setVmIps((prev) => {
+                const prevIps = prev[selectedVmName] || [];
+                if (
+                  prevIps.length === ips.length &&
+                  prevIps.every((v, i) => v === ips[i])
+                ) {
+                  return prev;
+                }
+                return { ...prev, [selectedVmName]: ips };
+              });
+            })
+            .catch(() => {});
+        } else {
+          setVmIps((prev) => {
+            if (prev[selectedVmName] && prev[selectedVmName].length > 0) {
+              return { ...prev, [selectedVmName]: [] };
+            }
+            return prev;
+          });
+        }
+      }
+
       const now = Date.now();
       const nextCpuUsage: { [name: string]: number } = {};
       
@@ -646,12 +679,13 @@ function App() {
   // Track selected VM's state to avoid re-running guest agent check on every domain refresh
   const selectedVmState = domains.find((d) => d.name === selectedVmNames[0])?.state;
 
-  // Check guest agent when selected VM changes, its running state changes, or user switches to status tab
+  // Check guest agent and IP address when selected VM changes, its running state changes, or user switches to status tab
   useEffect(() => {
     const selectedVmName = selectedVmNames[0];
     if (!selectedVmName || activeTab !== "status") return;
     if (selectedVmState !== 1) {
       setGuestAgentAvailable((prev) => ({ ...prev, [selectedVmName]: false }));
+      setVmIps((prev) => ({ ...prev, [selectedVmName]: [] }));
       return;
     }
     invoke<boolean>("check_guest_agent", { name: selectedVmName })
@@ -660,6 +694,14 @@ function App() {
       })
       .catch(() => {
         setGuestAgentAvailable((prev) => ({ ...prev, [selectedVmName]: false }));
+      });
+
+    invoke<string[]>("get_vm_ip_addresses", { name: selectedVmName })
+      .then((ips) => {
+        setVmIps((prev) => ({ ...prev, [selectedVmName]: ips }));
+      })
+      .catch(() => {
+        setVmIps((prev) => ({ ...prev, [selectedVmName]: [] }));
       });
   }, [selectedVmNames, selectedVmState, activeTab]);
 
@@ -1101,6 +1143,7 @@ function App() {
                       guestAgentAvailable={guestAgentAvailable[selectedVm.name] ?? false}
                       metricsEnabled={metricsEnabled}
                       t={t}
+                      ipAddresses={vmIps[selectedVm.name]}
                     />
                   ) : activeTab === "console" ? (
                     // Console Tab (Modular Component)
@@ -1172,6 +1215,7 @@ function App() {
           handleBatchAction={handleBatchAction}
           moveSelectedVmsToFolder={moveSelectedVmsToFolder}
           onDeleted={() => { setSelectedVmNames([]); fetchDomains(true); }}
+          onClone={setCloneVmTarget}
           showGlobalToast={showGlobalToast}
         />
       )}
@@ -1201,6 +1245,17 @@ function App() {
           storagePools={storagePools}
           t={t}
           onCreated={() => fetchDomains()}
+        />
+      )}
+
+      {/* Clone VM Modal */}
+      {cloneVmTarget && (
+        <CloneVmModal
+          sourceVmName={cloneVmTarget}
+          onClose={() => setCloneVmTarget(null)}
+          onSuccess={() => fetchDomains()}
+          t={t}
+          showGlobalToast={showGlobalToast}
         />
       )}
 

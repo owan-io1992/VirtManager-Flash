@@ -20,6 +20,7 @@ interface VmContextMenuProps {
   handleBatchAction: (action: string) => Promise<void>;
   moveSelectedVmsToFolder: (folderId: string | null) => void;
   onDeleted: () => void;
+  onClone?: (vmName: string) => void;
   showGlobalToast?: (message: string, type: "success" | "error") => void;
 }
 
@@ -40,6 +41,7 @@ export const VmContextMenu = ({
   handleBatchAction,
   moveSelectedVmsToFolder,
   onDeleted,
+  onClone,
   showGlobalToast,
 }: VmContextMenuProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -158,6 +160,18 @@ export const VmContextMenu = ({
         disabled={!canReset}
       >
         <span className="menu-icon" style={{ color: "#EF4444" }}>⚠</span> {t("ctx_reset")}
+      </button>
+      
+      <button
+        className="context-menu-item"
+        onClick={() => {
+          setContextMenu(null);
+          if (onClone) {
+            onClone(contextMenu.vmName);
+          }
+        }}
+      >
+        <span className="menu-icon" style={{ color: "#3B82F6" }}>🐑</span> {t("ctx_clone")}
       </button>
       
       <div className="context-menu-divider"></div>

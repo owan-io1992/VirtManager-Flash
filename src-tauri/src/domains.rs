@@ -764,10 +764,30 @@ fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_devices: &[String]) -> S
                 let is_cdrom = disk.device == "cdrom";
                 let mut b = replace_attr_in_block(block, "<target", "bus", &disk.bus);
                 b = replace_attr_in_block(&b, "<disk", "device", if is_cdrom { "cdrom" } else { "disk" });
-                if b.contains("file=") {
-                    b = replace_attr_in_block(&b, "<source", "file", &disk.path);
-                } else if b.contains("dev=") {
-                    b = replace_attr_in_block(&b, "<source", "dev", &disk.path);
+                if disk.path.is_empty() {
+                    if let Some(src_start) = b.find("<source") {
+                        if let Some(rel_end) = b[src_start..].find("/>") {
+                            let end = src_start + rel_end + 2;
+                            let mut cleaned = String::new();
+                            cleaned.push_str(&b[..src_start]);
+                            cleaned.push_str(&b[end..]);
+                            b = cleaned;
+                        }
+                    }
+                } else {
+                    if b.contains("file=") {
+                        b = replace_attr_in_block(&b, "<source", "file", &disk.path);
+                    } else if b.contains("dev=") {
+                        b = replace_attr_in_block(&b, "<source", "dev", &disk.path);
+                    } else {
+                        if let Some(tgt_idx) = b.find("<target") {
+                            let mut new_b = String::new();
+                            new_b.push_str(&b[..tgt_idx]);
+                            new_b.push_str(&format!("<source file='{}'/>\n      ", disk.path));
+                            new_b.push_str(&b[tgt_idx..]);
+                            b = new_b;
+                        }
+                    }
                 }
                 
                 // Update driver type based on device type, but preserve original if present
@@ -811,11 +831,16 @@ fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_devices: &[String]) -> S
             };
             let driver_type = if is_cdrom { "raw" } else { "qcow2" };
             let readonly_tag = if is_cdrom { "\n      <readonly/>" } else { "" };
+            let source_tag = if disk.path.is_empty() {
+                "".to_string()
+            } else {
+                format!("\n      <source file='{}'/>", disk.path)
+            };
             let disk_xml = format!(
-                "    <disk type='file' device='{}'>\n      <driver name='qemu' type='{}'/>\n      <source file='{}'/>\n      <target dev='{}' bus='{}'/>{}{}\n    </disk>\n",
+                "    <disk type='file' device='{}'>\n      <driver name='qemu' type='{}'/>{}\n      <target dev='{}' bus='{}'/>{}{}\n    </disk>\n",
                 if disk.device.is_empty() { "disk" } else { &disk.device },
                 driver_type,
-                disk.path,
+                source_tag,
                 disk.target_dev,
                 if disk.bus.is_empty() { "virtio" } else { &disk.bus },
                 readonly_tag,
@@ -1466,6 +1491,57 @@ pub fn check_guest_agent(name: String) -> Result<bool, String> {
     Ok(false)
 }
 
+/// Query the IP addresses of a running VM.
+#[tauri::command(async)]
+pub fn get_vm_ip_addresses(name: String) -> Result<Vec<String>, String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &name)
+        .map_err(|e| format!("VM not found: {}", e))?;
+
+    let mut ips = Vec::new();
+
+    // 1. Try Guest Agent
+    if let Ok(interfaces) = dom.interface_addresses(virt::sys::VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT, 0) {
+        for iface in interfaces {
+            for addr in iface.addrs {
+                if addr.addr != "127.0.0.1" && addr.addr != "::1" {
+                    ips.push(addr.addr);
+                }
+            }
+        }
+    }
+
+    // 2. Try DHCP Leases
+    if ips.is_empty() {
+        if let Ok(interfaces) = dom.interface_addresses(virt::sys::VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0) {
+            for iface in interfaces {
+                for addr in iface.addrs {
+                    if addr.addr != "127.0.0.1" && addr.addr != "::1" {
+                        ips.push(addr.addr);
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Try ARP Tables
+    if ips.is_empty() {
+        if let Ok(interfaces) = dom.interface_addresses(virt::sys::VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_ARP, 0) {
+            for iface in interfaces {
+                for addr in iface.addrs {
+                    if addr.addr != "127.0.0.1" && addr.addr != "::1" {
+                        ips.push(addr.addr);
+                    }
+                }
+            }
+        }
+    }
+
+    ips.sort();
+    ips.dedup();
+    Ok(ips)
+}
+
 /// Return the raw persistent XML for the XML editing mode
 #[tauri::command(async)]
 pub fn get_vm_xml(name: String) -> Result<String, String> {
@@ -2070,4 +2146,226 @@ pub fn delete_snapshot(vm_name: String, snapshot_name: String) -> Result<(), Str
     snap.delete(0)
         .map_err(|e| format!("Failed to delete snapshot: {}", e))
 }
+
+fn random_mac() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    format!("52:54:00:{:02x}:{:02x}:{:02x}", 
+        rng.gen::<u8>(),
+        rng.gen::<u8>(),
+        rng.gen::<u8>()
+    )
+}
+
+fn find_pool_for_volume(conn: &virt::connect::Connect, vol_path: &str) -> Result<StoragePool, String> {
+    if let Ok(vol) = StorageVol::lookup_by_path(conn, vol_path) {
+        if let Ok(pool) = StoragePool::lookup_by_volume(&vol) {
+            return Ok(pool);
+        }
+    }
+    
+    let pools = conn.list_all_storage_pools(0)
+        .map_err(|e| format!("Failed to list storage pools: {}", e))?;
+        
+    for pool in pools {
+        if !pool.is_active().unwrap_or(false) {
+            continue;
+        }
+        if let Ok(xml) = pool.get_xml_desc(0) {
+            if let Some(idx) = xml.find("<path>") {
+                let tail = &xml[idx + 6..];
+                if let Some(end) = tail.find("</path>") {
+                    let pool_path = tail[..end].trim().to_string();
+                    let canonical_pool = std::fs::canonicalize(&pool_path)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or(pool_path.clone());
+                    let canonical_vol = std::fs::canonicalize(vol_path)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or(vol_path.to_string());
+                    if canonical_vol.starts_with(&canonical_pool) {
+                        return Ok(pool);
+                    }
+                }
+            }
+        }
+    }
+    Err(format!("Could not find storage pool for volume path: {}", vol_path))
+}
+
+#[tauri::command(async)]
+pub fn clone_vm(source_name: String, new_name: String, clone_type: String) -> Result<(), String> {
+    let conn = crate::connect_libvirt()?;
+    let dom = Domain::lookup_by_name(&conn, &source_name)
+        .map_err(|e| format!("Source VM not found: {}", e))?;
+
+    // Deletion and cloning is restricted to powered-off VMs
+    let state = dom.get_state().map(|(s, _)| s).unwrap_or(0);
+    if state == 1 /* VIR_DOMAIN_RUNNING */ || state == 3 /* VIR_DOMAIN_PAUSED */ {
+        return Err("Source VM must be powered off to clone it.".to_string());
+    }
+
+    // Get current XML configuration (inactive / persistent config)
+    let xml = dom.get_xml_desc(2)
+        .or_else(|_| dom.get_xml_desc(0))
+        .map_err(|e| format!("Failed to read XML: {}", e))?;
+
+    // Collect disk paths of the source VM
+    let mut disks: Vec<String> = Vec::new();
+    let mut search = xml.as_str();
+    while let Some(src_idx) = search.find("<source file='") {
+        let rest = &search[src_idx + 14..];
+        if let Some(end) = rest.find('\'') {
+            let path = &rest[..end];
+            if path.ends_with(".qcow2") || path.ends_with(".img") || path.ends_with(".raw") {
+                disks.push(path.to_string());
+            }
+        }
+        search = &search[src_idx + 14..];
+    }
+    
+    // Also scan for double quotes
+    let mut search_dq = xml.as_str();
+    while let Some(src_idx) = search_dq.find("<source file=\"") {
+        let rest = &search_dq[src_idx + 14..];
+        if let Some(end) = rest.find('"') {
+            let path = &rest[..end];
+            if path.ends_with(".qcow2") || path.ends_with(".img") || path.ends_with(".raw") {
+                if !disks.contains(&path.to_string()) {
+                    disks.push(path.to_string());
+                }
+            }
+        }
+        search_dq = &search_dq[src_idx + 14..];
+    }
+
+    let mut new_disk_paths = Vec::new();
+    let mut created_volumes = Vec::new();
+
+    for (idx, src_path) in disks.iter().enumerate() {
+        let vol = StorageVol::lookup_by_path(&conn, src_path)
+            .map_err(|e| format!("Failed to look up storage volume for path '{}': {}", src_path, e))?;
+            
+        let pool = find_pool_for_volume(&conn, src_path)?;
+        
+        let pool_xml = pool.get_xml_desc(0).unwrap_or_default();
+        let pool_path = if let Some(idx) = pool_xml.find("<path>") {
+            let tail = &pool_xml[idx + 6..];
+            tail[..tail.find("</path>").unwrap_or(0)].trim().to_string()
+        } else {
+            "/var/lib/libvirt/images".to_string()
+        };
+
+        // Create new disk name and path
+        let suffix = if src_path.ends_with(".qcow2") {
+            "qcow2"
+        } else if src_path.ends_with(".img") {
+            "img"
+        } else {
+            "raw"
+        };
+        
+        let new_vol_name = if disks.len() > 1 {
+            format!("{}-{}.{}", new_name, idx, suffix)
+        } else {
+            format!("{}.{}", new_name, suffix)
+        };
+        let new_disk_path = format!("{}/{}", pool_path.trim_end_matches('/'), new_vol_name);
+
+        let vol_xml_desc = vol.get_xml_desc(0).unwrap_or_default();
+        let capacity = vol.get_info().map(|i| i.capacity).unwrap_or(10 * 1024 * 1024 * 1024);
+
+        if clone_type == "linked" {
+            // Linked clone requires qcow2 target
+            let vol_xml = format!(
+                "<volume>\n  <name>{}</name>\n  <capacity>{}</capacity>\n  <target>\n    <format type='qcow2'/>\n  </target>\n  <backingStore>\n    <path>{}</path>\n    <format type='qcow2'/>\n  </backingStore>\n</volume>",
+                xml_escape(&new_vol_name), capacity, xml_escape(src_path)
+            );
+            match StorageVol::create_xml(&pool, &vol_xml, 0) {
+                Ok(new_vol) => {
+                    created_volumes.push(new_vol);
+                    new_disk_paths.push((src_path.clone(), new_disk_path));
+                }
+                Err(e) => {
+                    // Cleanup already created volumes
+                    for v in created_volumes {
+                        let _ = v.delete(0);
+                    }
+                    return Err(format!("Failed to create linked volume: {}", e));
+                }
+            }
+        } else {
+            // Full clone
+            let format_type = if vol_xml_desc.contains("<format type='raw'/>") { "raw" } else { "qcow2" };
+            let vol_xml = format!(
+                "<volume>\n  <name>{}</name>\n  <capacity>{}</capacity>\n  <target>\n    <format type='{}'/>\n  </target>\n</volume>",
+                xml_escape(&new_vol_name), capacity, format_type
+            );
+            match StorageVol::create_xml_from(&pool, &vol_xml, &vol, 0) {
+                Ok(new_vol) => {
+                    created_volumes.push(new_vol);
+                    new_disk_paths.push((src_path.clone(), new_disk_path));
+                }
+                Err(e) => {
+                    // Cleanup already created volumes
+                    for v in created_volumes {
+                        let _ = v.delete(0);
+                    }
+                    return Err(format!("Failed to clone volume: {}", e));
+                }
+            }
+        }
+    }
+
+    // Modify the XML configuration
+    let mut new_xml = xml;
+    new_xml = replace_tag_content(&new_xml, "name", &new_name);
+
+    // Remove UUID block
+    if let Some(uuid_start) = new_xml.find("<uuid>") {
+        if let Some(uuid_end) = new_xml[uuid_start..].find("</uuid>") {
+            let actual_end = uuid_start + uuid_end + 7;
+            new_xml.replace_range(uuid_start..actual_end, "");
+        }
+    }
+
+    // Replace disk paths
+    for (old_path, new_path) in &new_disk_paths {
+        let old_source = format!("<source file='{}'", old_path);
+        let new_source = format!("<source file='{}'", new_path);
+        new_xml = new_xml.replace(&old_source, &new_source);
+        let old_source_dq = format!("<source file=\"{}\"", old_path);
+        let new_source_dq = format!("<source file=\"{}\"", new_path);
+        new_xml = new_xml.replace(&old_source_dq, &new_source_dq);
+    }
+
+    // Replace MAC addresses
+    let mut start = 0;
+    while let Some(mac_idx) = new_xml[start..].find("<mac address=") {
+        let abs_idx = start + mac_idx;
+        let block = &new_xml[abs_idx..];
+        let quote_char = if block.starts_with("<mac address='") { '\'' } else { '"' };
+        let prefix_len = if quote_char == '\'' { "<mac address='".len() } else { "<mac address=\"".len() };
+        if let Some(end_quote) = block[prefix_len..].find(quote_char) {
+            let new_mac = random_mac();
+            let target_range = abs_idx + prefix_len .. abs_idx + prefix_len + end_quote;
+            new_xml.replace_range(target_range, &new_mac);
+            start = abs_idx + prefix_len + new_mac.len() + 1;
+        } else {
+            start = abs_idx + 1;
+        }
+    }
+
+    // Define the new VM
+    match Domain::define_xml(&conn, &new_xml) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            // Cleanup created volumes
+            for v in created_volumes {
+                let _ = v.delete(0);
+            }
+            Err(format!("Failed to define cloned VM: {}", e))
+        }
+    }
+}
+
 

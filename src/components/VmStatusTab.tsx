@@ -29,6 +29,7 @@ interface VmStatusTabProps {
   guestAgentAvailable: boolean;
   metricsEnabled: boolean;
   t: (key: TranslationKey) => string;
+  ipAddresses?: string[];
 }
 
 const getStateKey = (stateNum: number): TranslationKey => {
@@ -80,6 +81,7 @@ export const VmStatusTab = ({
   guestAgentAvailable,
   metricsEnabled,
   t,
+  ipAddresses,
 }: VmStatusTabProps) => {
   const history = metricsHistory[selectedVm.name] || EMPTY_HISTORY;
   const lastPoint = history[history.length - 1];
@@ -131,6 +133,14 @@ export const VmStatusTab = ({
           <span className="resource-card-label">{t("max_memory")}</span>
           <span className="resource-card-val">{formatMemory(selectedVm.max_mem)}</span>
         </div>
+        {ipAddresses && ipAddresses.length > 0 && (
+          <div className="resource-card">
+            <span className="resource-card-label">{t("ip_address")}</span>
+            <span className="resource-card-val" style={{ wordBreak: "break-all" }}>
+              {ipAddresses.join(", ")}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Guest agent warning — only shown when VM is running but agent is unavailable */}
@@ -153,6 +163,7 @@ export const VmStatusTab = ({
               label={t("cpu_usage")}
               currentValue={`${(cpuUsage[selectedVm.name] || 0).toFixed(1)}%`}
               lang={_lang}
+              maxVal={100}
             />
           </div>
 
@@ -171,6 +182,7 @@ export const VmStatusTab = ({
               label={t("memory_usage")}
               currentValue={`${formatMemory(selectedVm.memory)} / ${formatMemory(selectedVm.max_mem)} (${selectedVm.max_mem > 0 ? ((selectedVm.memory / selectedVm.max_mem) * 100).toFixed(1) : "0.0"}%)`}
               lang={_lang}
+              maxVal={100}
             />
           </div>
 
