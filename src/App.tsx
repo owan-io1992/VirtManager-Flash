@@ -96,7 +96,7 @@ function App() {
   const [networks, setNetworks] = useState<NetworkItem[]>([]);
   const [storagePools, setStoragePools] = useState<StoragePoolItem[]>([]);
   const [showCreateVmWizard, setShowCreateVmWizard] = useState(false);
-  const [cloneVmTarget, setCloneVmTarget] = useState<string | null>(null);
+  const [cloneVmTarget, setCloneVmTarget] = useState<{ vmName: string; snapshotName?: string } | null>(null);
 
   // Sync state changes with localStorage
   useEffect(() => {
@@ -1182,6 +1182,7 @@ function App() {
                       theme={theme}
                       lang={lang}
                       t={t}
+                      onClone={(target) => setCloneVmTarget(target)}
                     />
                   )}
                 </div>
@@ -1251,7 +1252,8 @@ function App() {
       {/* Clone VM Modal */}
       {cloneVmTarget && (
         <CloneVmModal
-          sourceVmName={cloneVmTarget}
+          sourceVmName={cloneVmTarget.vmName}
+          initialSnapshotName={cloneVmTarget.snapshotName}
           onClose={() => setCloneVmTarget(null)}
           onSuccess={() => fetchDomains()}
           t={t}

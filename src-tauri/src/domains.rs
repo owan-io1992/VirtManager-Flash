@@ -2192,8 +2192,15 @@ fn find_pool_for_volume(conn: &virt::connect::Connect, vol_path: &str) -> Result
     Err(format!("Could not find storage pool for volume path: {}", vol_path))
 }
 
+fn get_domain_xml_from_snapshot(snap_xml: &str) -> Option<String> {
+    let start_idx = snap_xml.find("<domain ")
+        .or_else(|| snap_xml.find("<domain>"))?;
+    let end_idx = snap_xml[start_idx..].find("</domain>")?;
+    Some(snap_xml[start_idx..start_idx + end_idx + 9].to_string())
+}
+
 #[tauri::command(async)]
-pub fn clone_vm(source_name: String, new_name: String, clone_type: String) -> Result<(), String> {
+pub fn clone_vm(source_name: String, new_name: String, clone_type: String, snapshot_name: Option<String>) -> Result<(), String> {
     let conn = crate::connect_libvirt()?;
     let dom = Domain::lookup_by_name(&conn, &source_name)
         .map_err(|e| format!("Source VM not found: {}", e))?;
@@ -2204,10 +2211,22 @@ pub fn clone_vm(source_name: String, new_name: String, clone_type: String) -> Re
         return Err("Source VM must be powered off to clone it.".to_string());
     }
 
-    // Get current XML configuration (inactive / persistent config)
-    let xml = dom.get_xml_desc(2)
-        .or_else(|_| dom.get_xml_desc(0))
-        .map_err(|e| format!("Failed to read XML: {}", e))?;
+    let snap_name = snapshot_name.as_deref().unwrap_or("");
+    let use_snapshot = !snap_name.is_empty();
+
+    // Get XML configuration
+    let xml = if use_snapshot {
+        let snap = virt::domain_snapshot::DomainSnapshot::lookup_by_name(&dom, &snap_name, 0)
+            .map_err(|e| format!("Snapshot '{}' not found: {}", snap_name, e))?;
+        let snap_xml = snap.get_xml_desc(0)
+            .map_err(|e| format!("Failed to read snapshot XML: {}", e))?;
+        get_domain_xml_from_snapshot(&snap_xml)
+            .ok_or_else(|| "Could not extract <domain> configuration from snapshot XML".to_string())?
+    } else {
+        dom.get_xml_desc(2)
+            .or_else(|_| dom.get_xml_desc(0))
+            .map_err(|e| format!("Failed to read XML: {}", e))?
+    };
 
     // Collect disk paths of the source VM
     let mut disks: Vec<String> = Vec::new();
@@ -2274,7 +2293,58 @@ pub fn clone_vm(source_name: String, new_name: String, clone_type: String) -> Re
         let vol_xml_desc = vol.get_xml_desc(0).unwrap_or_default();
         let capacity = vol.get_info().map(|i| i.capacity).unwrap_or(10 * 1024 * 1024 * 1024);
 
-        if clone_type == "linked" {
+        if use_snapshot {
+            // Force full clone with qemu-img convert when cloning from snapshot
+            let format_type = if vol_xml_desc.contains("<format type='raw'/>") { "raw" } else { "qcow2" };
+            let vol_xml = format!(
+                "<volume>\n  <name>{}</name>\n  <capacity>{}</capacity>\n  <target>\n    <format type='{}'/>\n  </target>\n</volume>",
+                xml_escape(&new_vol_name), capacity, format_type
+            );
+            match StorageVol::create_xml(&pool, &vol_xml, 0) {
+                Ok(new_vol) => {
+                    let output = std::process::Command::new("sudo")
+                        .arg("qemu-img")
+                        .arg("convert")
+                        .arg("-f")
+                        .arg("qcow2")
+                        .arg("-O")
+                        .arg("qcow2")
+                        .arg("-l")
+                        .arg(&snap_name)
+                        .arg(src_path)
+                        .arg(&new_disk_path)
+                        .output();
+                    
+                    match output {
+                        Ok(out) if out.status.success() => {
+                            created_volumes.push(new_vol);
+                            new_disk_paths.push((src_path.clone(), new_disk_path));
+                        }
+                        Ok(out) => {
+                            let err_msg = String::from_utf8_lossy(&out.stderr).into_owned();
+                            let _ = new_vol.delete(0);
+                            for v in created_volumes {
+                                let _ = v.delete(0);
+                            }
+                            return Err(format!("qemu-img convert failed: {}", err_msg));
+                        }
+                        Err(e) => {
+                            let _ = new_vol.delete(0);
+                            for v in created_volumes {
+                                let _ = v.delete(0);
+                            }
+                            return Err(format!("Failed to run qemu-img convert: {}", e));
+                        }
+                    }
+                }
+                Err(e) => {
+                    for v in created_volumes {
+                        let _ = v.delete(0);
+                    }
+                    return Err(format!("Failed to create storage volume: {}", e));
+                }
+            }
+        } else if clone_type == "linked" {
             // Linked clone requires qcow2 target
             let vol_xml = format!(
                 "<volume>\n  <name>{}</name>\n  <capacity>{}</capacity>\n  <target>\n    <format type='qcow2'/>\n  </target>\n  <backingStore>\n    <path>{}</path>\n    <format type='qcow2'/>\n  </backingStore>\n</volume>",

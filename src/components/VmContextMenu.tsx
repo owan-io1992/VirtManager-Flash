@@ -20,7 +20,7 @@ interface VmContextMenuProps {
   handleBatchAction: (action: string) => Promise<void>;
   moveSelectedVmsToFolder: (folderId: string | null) => void;
   onDeleted: () => void;
-  onClone?: (vmName: string) => void;
+  onClone?: (target: { vmName: string; snapshotName?: string }) => void;
   showGlobalToast?: (message: string, type: "success" | "error") => void;
 }
 
@@ -53,10 +53,34 @@ export const VmContextMenu = ({
   const handleDelete = useCallback(async () => {
     if (!contextMenu) return;
     setDeleting(true);
+    const vmsToDelete = selectedVmNames.includes(contextMenu.vmName)
+      ? selectedVmNames
+      : [contextMenu.vmName];
+
     try {
-      await invoke("delete_vm", { name: contextMenu.vmName, deleteStorage });
+      const promises = vmsToDelete.map(async (name) => {
+        try {
+          await invoke("delete_vm", { name, deleteStorage });
+          return { name, success: true, error: null };
+        } catch (err: any) {
+          return { name, success: false, error: err?.toString() || "Unknown error" };
+        }
+      });
+      const results = await Promise.all(promises);
+      const failures = results.filter((r) => !r.success);
+
       setContextMenu(null);
       onDeleted();
+
+      if (failures.length > 0) {
+        const errorMsgs = failures.map((f) => `${f.name}: ${f.error}`).join("; ");
+        const errMsg = t("err_batch_partial") + errorMsgs;
+        if (showGlobalToast) {
+          showGlobalToast(errMsg, "error");
+        } else {
+          alert(errMsg);
+        }
+      }
     } catch (err: any) {
       const errMsg = err?.toString() || "Unknown error";
       if (showGlobalToast) {
@@ -68,7 +92,7 @@ export const VmContextMenu = ({
       setDeleting(false);
       setDeleteConfirm(false);
     }
-  }, [contextMenu, deleteStorage, onDeleted]);
+  }, [contextMenu, deleteStorage, onDeleted, selectedVmNames, showGlobalToast, t]);
 
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return;
@@ -167,11 +191,11 @@ export const VmContextMenu = ({
         onClick={() => {
           setContextMenu(null);
           if (onClone) {
-            onClone(contextMenu.vmName);
+            onClone({ vmName: contextMenu.vmName });
           }
         }}
       >
-        <span className="menu-icon" style={{ color: "#3B82F6" }}>🐑</span> {t("ctx_clone")}
+        <span className="menu-icon" style={{ color: "#3B82F6" }}>❐</span> {t("ctx_clone")}
       </button>
       
       <div className="context-menu-divider"></div>
@@ -217,7 +241,11 @@ export const VmContextMenu = ({
             <h2 className="wizard-title" style={{ color: "#EF4444" }}>{t("ctx_delete")}</h2>
           </div>
           <div className="wizard-body">
-            <p style={{ marginBottom: "1rem" }}>{t("ctx_delete_confirm", { name: contextMenu.vmName })}</p>
+            <p style={{ marginBottom: "1rem" }}>
+              {selectedVmNames.includes(contextMenu.vmName) && selectedVmNames.length > 1
+                ? t("ctx_delete_confirm_multiple", { count: selectedVmNames.length })
+                : t("ctx_delete_confirm", { name: contextMenu.vmName })}
+            </p>
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
               <input
                 type="checkbox"

@@ -608,11 +608,12 @@ export const ResourceManagerModal = ({
                             </tr>
                           </thead>
                           <tbody>
-                            {activeStorage.volumes
+                            {[...activeStorage.volumes]
                               .filter((vol) =>
                                 vol.name.toLowerCase().includes(volSearchQuery.toLowerCase()) ||
                                 vol.used_by.toLowerCase().includes(volSearchQuery.toLowerCase())
                               )
+                              .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
                               .map((vol) => (
                                 <tr key={vol.name}>
                                   <td>{vol.name}</td>

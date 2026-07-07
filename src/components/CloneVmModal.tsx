@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { TranslationKey } from "../translations";
 
 interface CloneVmModalProps {
   sourceVmName: string;
+  initialSnapshotName?: string;
   onClose: () => void;
   onSuccess: () => void;
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
@@ -12,6 +13,7 @@ interface CloneVmModalProps {
 
 export const CloneVmModal = ({
   sourceVmName,
+  initialSnapshotName,
   onClose,
   onSuccess,
   t,
@@ -19,7 +21,19 @@ export const CloneVmModal = ({
 }: CloneVmModalProps) => {
   const [newName, setNewName] = useState(`${sourceVmName}-clone`);
   const [cloneType, setCloneType] = useState<"full" | "linked">("full");
+  const [snapshots, setSnapshots] = useState<{ name: string }[]>([]);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<string>(initialSnapshotName || "");
   const [cloning, setCloning] = useState(false);
+
+  useEffect(() => {
+    invoke<any[]>("list_snapshots", { name: sourceVmName })
+      .then((list) => {
+        setSnapshots(list || []);
+      })
+      .catch((err) => console.error("Failed to list snapshots for clone modal:", err));
+  }, [sourceVmName]);
+
+  const activeCloneType = selectedSnapshot ? "full" : cloneType;
 
   const handleClone = async () => {
     if (!newName.trim()) return;
@@ -28,7 +42,8 @@ export const CloneVmModal = ({
       await invoke("clone_vm", {
         sourceName: sourceVmName,
         newName: newName.trim(),
-        cloneType: cloneType,
+        cloneType: activeCloneType,
+        snapshotName: selectedSnapshot || null,
       });
       if (showGlobalToast) {
         showGlobalToast(t("clone_success", { name: newName.trim() }), "success");
@@ -79,28 +94,65 @@ export const CloneVmModal = ({
             </div>
 
             <div className="form-row" style={{ marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span className="form-label">{t("clone_snapshot_select")}</span>
+              <select
+                className="form-input"
+                style={{
+                  width: "100%",
+                  padding: "0.4rem",
+                  borderRadius: "4px",
+                  border: "1px solid var(--border-color, #ccc)",
+                  backgroundColor: "var(--bg-input, #fff)",
+                  color: "var(--text-color, #000)"
+                }}
+                value={selectedSnapshot}
+                onChange={(e) => {
+                  setSelectedSnapshot(e.target.value);
+                  if (e.target.value) {
+                    setCloneType("full");
+                  }
+                }}
+                disabled={cloning}
+              >
+                <option value="">{t("clone_snapshot_none")}</option>
+                {snapshots.map((snap) => (
+                  <option key={snap.name} value={snap.name}>
+                    {snap.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-row" style={{ marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <span className="form-label">{t("clone_type")}</span>
-              <div style={{ display: "flex", gap: "1.5rem" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="cloneType"
-                    checked={cloneType === "full"}
-                    onChange={() => setCloneType("full")}
-                    disabled={cloning}
-                  />
-                  {t("clone_type_full")}
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="cloneType"
-                    checked={cloneType === "linked"}
-                    onChange={() => setCloneType("linked")}
-                    disabled={cloning}
-                  />
-                  {t("clone_type_linked")}
-                </label>
+              <div style={{ display: "flex", gap: "1.5rem", flexDirection: "column" }}>
+                <div style={{ display: "flex", gap: "1.5rem" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                    <input
+                      type="radio"
+                      name="cloneType"
+                      checked={activeCloneType === "full"}
+                      onChange={() => setCloneType("full")}
+                      disabled={cloning}
+                    />
+                    {t("clone_type_full")}
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", opacity: selectedSnapshot ? 0.5 : 1 }}>
+                    <input
+                      type="radio"
+                      name="cloneType"
+                      checked={activeCloneType === "linked"}
+                      onChange={() => setCloneType("linked")}
+                      disabled={cloning || !!selectedSnapshot}
+                    />
+                    {t("clone_type_linked")}
+                  </label>
+                </div>
+                {selectedSnapshot && (
+                  <span style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.25rem" }}>
+                    ⚠️ {t("clone_linked_snapshot_warning")}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -120,7 +172,7 @@ export const CloneVmModal = ({
               cursor: "pointer",
             }}
           >
-            {cloning ? t("clone_in_progress") : t("clone_title")}
+            {cloning ? t("clone_in_progress") : t("btn_clone")}
           </button>
         </div>
       </div>

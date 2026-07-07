@@ -8,6 +8,7 @@ interface VmSnapshotsTabProps {
   theme: "dark" | "light" | "sketch";
   lang: "zh" | "en";
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
+  onClone?: (target: { vmName: string; snapshotName?: string }) => void;
 }
 
 const VmSnapshotsTabComponent = ({
@@ -15,6 +16,7 @@ const VmSnapshotsTabComponent = ({
   theme: _theme,
   lang: _lang,
   t,
+  onClone,
 }: VmSnapshotsTabProps) => {
   const [snapshots, setSnapshots] = useState<SnapshotItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -239,6 +241,14 @@ const VmSnapshotsTabComponent = ({
                   </td>
                   <td style={{ textAlign: "right" }}>
                     <div style={{ display: "inline-flex", gap: "0.5rem" }}>
+                      <button
+                        className="btn-primary"
+                        style={{ padding: "0.25rem 0.6rem", fontSize: "0.8rem", background: "#3B82F6" }}
+                        onClick={() => onClone && onClone({ vmName: selectedVm.name, snapshotName: snap.name })}
+                        title={t("btn_clone")}
+                      >
+                        {t("btn_clone")}
+                      </button>
                       <button
                         className="btn-primary"
                         style={{ padding: "0.25rem 0.6rem", fontSize: "0.8rem" }}
