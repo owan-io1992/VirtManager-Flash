@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+set -x 
+export PS4='+ $(date "+%s.%N") : '
+
 
 export APPIMAGE_EXTRACT_AND_RUN=1
 
@@ -53,8 +56,10 @@ else
   DEFAULT_PKG_ARCH="$UNAME_ARCH"
 fi
 
-wget -O appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${APPIMAGETOOL_ARCH}.AppImage"
-chmod +x appimagetool
+if [ ! -f appimagetool.AppImage ]; then
+  wget -O appimagetool.AppImage "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${APPIMAGETOOL_ARCH}.AppImage"
+  chmod +x appimagetool.AppImage
+fi
 
 # OS_LABEL/PKG_ARCH can be provided by the caller (e.g. CI matrix); fall back to
 # sensible defaults for local builds.
@@ -63,9 +68,9 @@ PKG_ARCH="${PKG_ARCH:-$DEFAULT_PKG_ARCH}"
 OUTPUT_APPIMAGE="VirtManager-Flash_${OS_LABEL}_${PKG_ARCH}.AppImage"
 
 echo "Repackaging AppImage..."
-ARCH=$RUN_ARCH ./appimagetool squashfs-root/ "./${OUTPUT_APPIMAGE}"
+ARCH=$RUN_ARCH ./appimagetool.AppImage squashfs-root/ "./${OUTPUT_APPIMAGE}"
 
 echo "Cleaning up intermediates..."
-rm -rf squashfs-root appimagetool
+rm -rf squashfs-root
 
 echo "Built ${OUTPUT_APPIMAGE}"

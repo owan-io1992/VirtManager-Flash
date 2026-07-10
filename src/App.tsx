@@ -1,3 +1,4 @@
+import React, { Suspense, lazy } from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
@@ -5,10 +6,13 @@ import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import "./App.css";
 
 // Modular components
-import { PreferencesModal } from "./components/PreferencesModal";
-import { ResourceManagerModal } from "./components/ResourceManagerModal";
-import { AboutModal } from "./components/AboutModal";
-import { VmSettingsTab } from "./components/VmSettingsTab";
+const PreferencesModal = lazy(() => import("./components/PreferencesModal").then(m => ({ default: m.PreferencesModal })));
+const ResourceManagerModal = lazy(() => import("./components/ResourceManagerModal").then(m => ({ default: m.ResourceManagerModal })));
+const AboutModal = lazy(() => import("./components/AboutModal").then(m => ({ default: m.AboutModal })));
+const VmSettingsTab = lazy(() => import("./components/VmSettingsTab").then(m => ({ default: m.VmSettingsTab })));
+const CreateVmWizard = lazy(() => import("./components/CreateVmWizard").then(m => ({ default: m.CreateVmWizard })));
+const CloneVmModal = lazy(() => import("./components/CloneVmModal").then(m => ({ default: m.CloneVmModal })));
+
 import { VmList } from "./components/VmList";
 import { SidebarHeader } from "./components/SidebarHeader";
 import { VmStatusTab } from "./components/VmStatusTab";
@@ -16,8 +20,6 @@ import { VmConsoleTab } from "./components/VmConsoleTab";
 import { VmSnapshotsTab } from "./components/VmSnapshotsTab";
 import { VmBatchView } from "./components/VmBatchView";
 import { VmContextMenu } from "./components/VmContextMenu";
-import { CreateVmWizard } from "./components/CreateVmWizard";
-import { CloneVmModal } from "./components/CloneVmModal";
 
 // Common types & translations
 import { DomainItem, Folder, NetworkItem, StoragePoolItem, SystemResources } from "./types";
@@ -1160,21 +1162,23 @@ function App() {
                     />
                   ) : activeTab === "settings" ? (
                     // VM Settings Tab (Modular Component)
-                    <VmSettingsTab
-                      selectedVm={selectedVm}
-                      networks={networks}
-                      storagePools={storagePools}
-                      systemResources={systemResources}
-                      t={t}
-                      onSaveSuccess={(newName?: string) => {
-                        // If the VM was renamed, follow the selection to the new name
-                        if (newName && newName !== selectedVm.name) {
-                          const nextNames = selectedVmNames.map((n) => (n === selectedVm.name ? newName : n));
-                          setSelectedVmNames(nextNames);
-                        }
-                        fetchDomains();
-                      }}
-                    />
+                    <Suspense fallback={<div className="tab-loading-placeholder">Loading Settings...</div>}>
+                      <VmSettingsTab
+                        selectedVm={selectedVm}
+                        networks={networks}
+                        storagePools={storagePools}
+                        systemResources={systemResources}
+                        t={t}
+                        onSaveSuccess={(newName?: string) => {
+                          // If the VM was renamed, follow the selection to the new name
+                          if (newName && newName !== selectedVm.name) {
+                            const nextNames = selectedVmNames.map((n) => (n === selectedVm.name ? newName : n));
+                            setSelectedVmNames(nextNames);
+                          }
+                          fetchDomains();
+                        }}
+                      />
+                    </Suspense>
                   ) : (
                     // Snapshots Tab (Modular Component)
                     <VmSnapshotsTab
@@ -1221,71 +1225,73 @@ function App() {
         />
       )}
 
-      {/* App Preferences Modal */}
-      {showPrefModal && (
-        <PreferencesModal
-          showPrefModal={showPrefModal}
-          setShowPrefModal={setShowPrefModal}
-          theme={theme}
-          setTheme={setTheme}
-          lang={lang}
-          setLang={setLang}
-          autoconnect={autoconnect}
-          setAutoconnect={setAutoconnect}
-          metricsEnabled={metricsEnabled}
-          setMetricsEnabled={setMetricsEnabled}
-          t={t}
-        />
-      )}
+      <Suspense fallback={null}>
+        {/* App Preferences Modal */}
+        {showPrefModal && (
+          <PreferencesModal
+            showPrefModal={showPrefModal}
+            setShowPrefModal={setShowPrefModal}
+            theme={theme}
+            setTheme={setTheme}
+            lang={lang}
+            setLang={setLang}
+            autoconnect={autoconnect}
+            setAutoconnect={setAutoconnect}
+            metricsEnabled={metricsEnabled}
+            setMetricsEnabled={setMetricsEnabled}
+            t={t}
+          />
+        )}
 
-      {/* Create VM Wizard */}
-      {showCreateVmWizard && (
-        <CreateVmWizard
-          show={showCreateVmWizard}
-          onClose={() => setShowCreateVmWizard(false)}
-          storagePools={storagePools}
-          t={t}
-          onCreated={() => fetchDomains()}
-        />
-      )}
+        {/* Create VM Wizard */}
+        {showCreateVmWizard && (
+          <CreateVmWizard
+            show={showCreateVmWizard}
+            onClose={() => setShowCreateVmWizard(false)}
+            storagePools={storagePools}
+            t={t}
+            onCreated={() => fetchDomains()}
+          />
+        )}
 
-      {/* Clone VM Modal */}
-      {cloneVmTarget && (
-        <CloneVmModal
-          sourceVmName={cloneVmTarget.vmName}
-          initialSnapshotName={cloneVmTarget.snapshotName}
-          onClose={() => setCloneVmTarget(null)}
-          onSuccess={() => fetchDomains()}
-          t={t}
-          showGlobalToast={showGlobalToast}
-        />
-      )}
+        {/* Clone VM Modal */}
+        {cloneVmTarget && (
+          <CloneVmModal
+            sourceVmName={cloneVmTarget.vmName}
+            initialSnapshotName={cloneVmTarget.snapshotName}
+            onClose={() => setCloneVmTarget(null)}
+            onSuccess={() => fetchDomains()}
+            t={t}
+            showGlobalToast={showGlobalToast}
+          />
+        )}
 
-      {/* App Resource Manager Modal */}
-      {showResModal && (
-        <ResourceManagerModal
-          showResModal={showResModal}
-          setShowResModal={setShowResModal}
-          lang={lang}
-          libvirtUri={libvirtUri}
-          setLibvirtUri={setLibvirtUri}
-          systemResources={systemResources}
-          networks={networks}
-          storagePools={storagePools}
-          t={t}
-          onRefresh={() => { fetchNetworks(); fetchStoragePools(); fetchDomains(); }}
-        />
-      )}
+        {/* App Resource Manager Modal */}
+        {showResModal && (
+          <ResourceManagerModal
+            showResModal={showResModal}
+            setShowResModal={setShowResModal}
+            lang={lang}
+            libvirtUri={libvirtUri}
+            setLibvirtUri={setLibvirtUri}
+            systemResources={systemResources}
+            networks={networks}
+            storagePools={storagePools}
+            t={t}
+            onRefresh={() => { fetchNetworks(); fetchStoragePools(); fetchDomains(); }}
+          />
+        )}
 
-      {/* About Application Modal */}
-      {showAboutModal && (
-        <AboutModal
-          showAboutModal={showAboutModal}
-          setShowAboutModal={setShowAboutModal}
-          lang={lang}
-          t={t}
-        />
-      )}
+        {/* About Application Modal */}
+        {showAboutModal && (
+          <AboutModal
+            showAboutModal={showAboutModal}
+            setShowAboutModal={setShowAboutModal}
+            lang={lang}
+            t={t}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

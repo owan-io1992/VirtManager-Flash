@@ -33,8 +33,10 @@ tauri-plugin-clipboard-manager = "2"
 
 # Optimized release profile (see https://v2.tauri.app/concept/size/)
 [profile.release]
-codegen-units = 1
-lto = true
+codegen-units = 8
+
+# thin,fat
+lto = "thin"
 opt-level = 3
 panic = "abort"
 strip = true
