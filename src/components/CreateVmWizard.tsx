@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { StoragePoolItem } from "../types";
 import { TranslationKey } from "../translations";
-import "../styles/wizard.css";
 
 interface IsoFile {
   path: string;
