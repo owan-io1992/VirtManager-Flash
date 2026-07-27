@@ -46,10 +46,24 @@ sudo apt install -y libvirt-dev pkg-config build-essential curl wget libssl-dev 
 ```
 
 ##### Runtime Dependencies (Required only for running the application)
+
+This application talks to the local `libvirtd` daemon, so `libvirt` itself must be installed and running (not just its client library). Installing `virt-manager` is the recommended way to pull this in, since VirtManager-Flash also relies on `virt-manager` for advanced configuration it doesn't cover itself.
+
 ```bash
 # Ubuntu / Debian
 sudo apt update
-sudo apt install -y libvirt0 libgtk-3-0 libwebkit2gtk-4.1-0 librsvg2-common
+sudo apt install -y virt-manager libgtk-3-0 libwebkit2gtk-4.1-0 librsvg2-common
+
+# Fedora / RHEL / CentOS
+sudo dnf install -y virt-manager gtk3 webkit2gtk4.1 librsvg2
+
+# Arch Linux
+sudo pacman -S --needed virt-manager gtk3 webkit2gtk-4.1 librsvg
+```
+
+After installing, make sure the `libvirtd` service is enabled and running:
+```bash
+sudo systemctl enable --now libvirtd
 ```
 
 ##### Toolchain Management (`mise`)
@@ -121,10 +135,24 @@ sudo apt install -y libvirt-dev pkg-config build-essential curl wget libssl-dev 
 ```
 
 ##### 執行依賴 (僅執行已編譯好的應用程式時需要)
+
+本應用程式會與本機的 `libvirtd` 服務通訊，因此必須安裝並啟動 `libvirt` 本身（而不僅僅是其用戶端函式庫）。建議直接安裝 `virt-manager`，除了會一併安裝 `libvirt` 之外，VirtManager-Flash 本身未涵蓋的進階設定也需要依靠 `virt-manager` 協助處理。
+
 ```bash
 # Ubuntu / Debian
 sudo apt update
-sudo apt install -y libvirt0 libgtk-3-0 libwebkit2gtk-4.1-0 librsvg2-common
+sudo apt install -y virt-manager libgtk-3-0 libwebkit2gtk-4.1-0 librsvg2-common
+
+# Fedora / RHEL / CentOS
+sudo dnf install -y virt-manager gtk3 webkit2gtk4.1 librsvg2
+
+# Arch Linux
+sudo pacman -S --needed virt-manager gtk3 webkit2gtk-4.1 librsvg
+```
+
+安裝完成後，請確認 `libvirtd` 服務已啟用並執行中：
+```bash
+sudo systemctl enable --now libvirtd
 ```
 
 ##### 工具鏈管理 (`mise`)

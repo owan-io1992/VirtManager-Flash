@@ -686,6 +686,38 @@
   font-weight: 700;
 }
 
+/* Per-VM legend chips under multi-series charts (batch selection view) */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  padding: 0 0.25rem;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-legend-name {
+  color: #94A3B8;
+  font-weight: 600;
+}
+
+.chart-legend-value {
+  color: #64748B;
+}
+
 /* Light Theme Overrides */
 .light-theme .main-content {
   background: rgba(248, 250, 252, 0.3);
@@ -817,6 +849,14 @@
 
 .light-theme .tooltip-row.value {
   color: #0F172A;
+}
+
+.light-theme .chart-legend-name {
+  color: #475569;
+}
+
+.light-theme .chart-legend-value {
+  color: #94A3B8;
 }
 
 /* Sketch Theme Overrides (Warm Pencil Sketch & Paper Style) */
@@ -962,6 +1002,14 @@
 
 .sketch-theme .tooltip-row.value {
   color: #3D3B3A;
+}
+
+.sketch-theme .chart-legend-name {
+  color: #3D3B3A;
+}
+
+.sketch-theme .chart-legend-value {
+  color: #7A7571;
 }
 
 .sketch-theme .progress-bar-fill.cpu {

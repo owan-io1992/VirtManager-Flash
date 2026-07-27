@@ -1127,6 +1127,10 @@ function App() {
                 totalCores={totalCores}
                 totalMemory={totalMemory}
                 formatMemory={formatMemory}
+                metricsHistory={metricsHistory}
+                cpuUsage={cpuUsage}
+                lang={lang}
+                metricsEnabled={metricsEnabled}
                 t={t}
               />
             ) : (
