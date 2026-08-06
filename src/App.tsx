@@ -1172,6 +1172,7 @@ function App() {
                         selectedVm={selectedVm}
                         networks={networks}
                         storagePools={storagePools}
+                        fetchStoragePools={fetchStoragePools}
                         systemResources={systemResources}
                         t={t}
                         onSaveSuccess={(newName?: string) => {
@@ -1254,6 +1255,7 @@ function App() {
             show={showCreateVmWizard}
             onClose={() => setShowCreateVmWizard(false)}
             storagePools={storagePools}
+            fetchStoragePools={fetchStoragePools}
             t={t}
             onCreated={() => fetchDomains()}
           />

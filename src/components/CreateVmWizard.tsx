@@ -15,6 +15,7 @@ interface CreateVmWizardProps {
   storagePools: StoragePoolItem[];
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
   onCreated: () => void;
+  fetchStoragePools?: () => Promise<void>;
 }
 
 type MemUnit = "MB" | "GB" | "TB";
@@ -27,8 +28,14 @@ const toMb = (val: number, unit: MemUnit) => {
 
 const STEP_COUNT = 3;
 
-export const CreateVmWizard = ({ show, onClose, storagePools, t, onCreated }: CreateVmWizardProps) => {
+export const CreateVmWizard = ({ show, onClose, storagePools, t, onCreated, fetchStoragePools }: CreateVmWizardProps) => {
   const [step, setStep] = useState(1);
+
+  useEffect(() => {
+    if (show && fetchStoragePools) {
+      fetchStoragePools();
+    }
+  }, [show, fetchStoragePools]);
 
   // Step 1
   const [vmName, setVmName] = useState("");

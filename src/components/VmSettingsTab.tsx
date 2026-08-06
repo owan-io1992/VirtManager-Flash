@@ -10,6 +10,7 @@ interface VmSettingsTabProps {
   systemResources: SystemResources | null;
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
   onSaveSuccess?: (newName?: string) => void;
+  fetchStoragePools?: () => Promise<void>;
 }
 
 type EditorMode = "form" | "xml";
@@ -89,10 +90,17 @@ const VmSettingsTabComponent = ({
   systemResources,
   t,
   onSaveSuccess,
+  fetchStoragePools,
 }: VmSettingsTabProps) => {
   const [editorMode, setEditorMode] = useState<EditorMode>("form");
   const [category, setCategory] = useState<Category>("general");
   const [systemSubtab, setSystemSubtab] = useState<SystemSubtab>("motherboard");
+
+  useEffect(() => {
+    if (category === "storage" && fetchStoragePools) {
+      fetchStoragePools();
+    }
+  }, [category, fetchStoragePools]);
 
   // Helper for memory units conversion
   const kbToValueAndUnit = (kb: number): { value: number; unit: "MB" | "GB" | "TB" } => {
@@ -921,6 +929,8 @@ const VmSettingsTabComponent = ({
                 className="form-select"
                 disabled={!isStopped && !isCdrom}
                 value={activePool.name}
+                onFocus={() => fetchStoragePools?.()}
+                onClick={() => fetchStoragePools?.()}
                 onChange={(e) => {
                   const newPool = storagePools.find(p => p.name === e.target.value);
                   if (newPool) {
@@ -942,6 +952,8 @@ const VmSettingsTabComponent = ({
                 className="form-select"
                 disabled={!isStopped && !isCdrom}
                 value={isCdrom && disk.path === "" ? "__eject__" : (isExistingVol ? filename : "__custom__")}
+                onFocus={() => fetchStoragePools?.()}
+                onClick={() => fetchStoragePools?.()}
                 onChange={(e) => {
                   if (e.target.value === "__eject__") {
                     updateDisk(i, { path: "" });
@@ -1437,7 +1449,10 @@ const VmSettingsTabComponent = ({
                     type="button"
                     className="btn-reset-settings"
                     style={{ borderColor: "rgba(36, 198, 220, 0.4)", color: "#24C6DC", marginRight: "0.25rem" }}
-                    onClick={addDisk}
+                    onClick={() => {
+                      addDisk();
+                      fetchStoragePools?.();
+                    }}
                   >
                     + {t("vm_add_volume")}
                   </button>
@@ -1537,7 +1552,8 @@ const vmSettingsTabPropsAreEqual = (prev: VmSettingsTabProps, next: VmSettingsTa
     prev.storagePools === next.storagePools &&
     prev.systemResources === next.systemResources &&
     prev.t === next.t &&
-    prev.onSaveSuccess === next.onSaveSuccess
+    prev.onSaveSuccess === next.onSaveSuccess &&
+    prev.fetchStoragePools === next.fetchStoragePools
   );
 };
 

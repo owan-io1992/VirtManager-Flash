@@ -120,6 +120,51 @@ fn update_interfaces_xml(xml: &str, nics: &[NicInfo], boot_devices: &[String]) -
     updated_xml
 }
 
+fn remove_source_tag(block: &str) -> String {
+    let mut b = block.to_string();
+    if let Some(src_start) = b.find("<source") {
+        if let Some(rel_end) = b[src_start..].find('>') {
+            let actual_end = src_start + rel_end + 1;
+            let after_tag = &b[actual_end..];
+            let final_end = if let Some(close_idx) = after_tag.find("</source>") {
+                actual_end + close_idx + "</source>".len()
+            } else {
+                actual_end
+            };
+            
+            let prefix = &b[..src_start];
+            let suffix = &b[final_end..];
+            let clean_prefix = if let Some(last_nl) = prefix.rfind('\n') {
+                if prefix[last_nl + 1..].trim().is_empty() {
+                    &prefix[..last_nl + 1]
+                } else {
+                    prefix
+                }
+            } else if prefix.trim().is_empty() {
+                ""
+            } else {
+                prefix
+            };
+            
+            b = format!("{}{}", clean_prefix, suffix.trim_start_matches(|c| c == '\r' || c == '\n'));
+        }
+    }
+    b
+}
+
+fn set_source_file(block: &str, path: &str) -> String {
+    let cleaned = remove_source_tag(block);
+    let mut b = replace_attr_in_block(&cleaned, "<disk", "type", "file");
+    if let Some(tgt_idx) = b.find("<target") {
+        let mut new_b = String::new();
+        new_b.push_str(&b[..tgt_idx]);
+        new_b.push_str(&format!("<source file='{}'/>\n      ", xml_escape(path)));
+        new_b.push_str(&b[tgt_idx..]);
+        b = new_b;
+    }
+    b
+}
+
 fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_devices: &[String]) -> String {
     let updated_xml = map_blocks(xml, "<disk", "</disk>", |block| {
         let dev = match get_attr_in_block(block, "<target", "dev") {
@@ -131,30 +176,14 @@ fn update_disks_xml(xml: &str, disks: &[DiskInfo], boot_devices: &[String]) -> S
                 let is_cdrom = disk.device == "cdrom";
                 let mut b = replace_attr_in_block(block, "<target", "bus", &disk.bus);
                 b = replace_attr_in_block(&b, "<disk", "device", if is_cdrom { "cdrom" } else { "disk" });
+                if is_cdrom {
+                    b = replace_attr_in_block(&b, "<disk", "type", "file");
+                }
+
                 if disk.path.is_empty() {
-                    if let Some(src_start) = b.find("<source") {
-                        if let Some(rel_end) = b[src_start..].find("/>") {
-                            let end = src_start + rel_end + 2;
-                            let mut cleaned = String::new();
-                            cleaned.push_str(&b[..src_start]);
-                            cleaned.push_str(&b[end..]);
-                            b = cleaned;
-                        }
-                    }
+                    b = remove_source_tag(&b);
                 } else {
-                    if b.contains("file=") {
-                        b = replace_attr_in_block(&b, "<source", "file", &disk.path);
-                    } else if b.contains("dev=") {
-                        b = replace_attr_in_block(&b, "<source", "dev", &disk.path);
-                    } else {
-                        if let Some(tgt_idx) = b.find("<target") {
-                            let mut new_b = String::new();
-                            new_b.push_str(&b[..tgt_idx]);
-                            new_b.push_str(&format!("<source file='{}'/>\n      ", disk.path));
-                            new_b.push_str(&b[tgt_idx..]);
-                            b = new_b;
-                        }
-                    }
+                    b = set_source_file(&b, &disk.path);
                 }
                 
                 let existing_driver_type = get_attr_in_block(&b, "<driver", "type");
@@ -483,31 +512,12 @@ fn apply_cdroms_live(dom: &Domain, disks: &[DiskInfo]) -> Result<(), String> {
             Some(d) => d,
             None => continue,
         };
-        let edited = if disk.path.is_empty() {
-            let mut b = block.to_string();
-            if let Some(src_start) = b.find("<source") {
-                if let Some(rel_end) = b[src_start..].find("/>") {
-                    let end = src_start + rel_end + 2;
-                    let mut cleaned = String::new();
-                    cleaned.push_str(&b[..src_start]);
-                    cleaned.push_str(&b[end..]);
-                    b = cleaned;
-                }
-            }
-            b
-        } else if block.contains("<source") {
-            replace_attr_in_block(&block, "<source", "file", &disk.path)
+        let mut edited = if disk.path.is_empty() {
+            remove_source_tag(&block)
         } else {
-            if let Some(tgt_idx) = block.find("<target") {
-                let mut b = String::new();
-                b.push_str(&block[..tgt_idx]);
-                b.push_str(&format!("<source file='{}'/>\n      ", disk.path));
-                b.push_str(&block[tgt_idx..]);
-                b
-            } else {
-                block.to_string()
-            }
+            set_source_file(&block, &disk.path)
         };
+        edited = replace_attr_in_block(&edited, "<disk", "type", "file");
         if edited != block {
             dom.update_device_flags(&edited, AFFECT_LIVE_CONFIG)
                 .map_err(|e| format!("Failed to update cdrom media live: {}", e))?;

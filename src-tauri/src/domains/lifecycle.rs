@@ -212,7 +212,14 @@ pub fn start_domain(name: String) -> Result<(), String> {
         .map_err(|e| format!("VM not found: {}", e))?;
     dom.create()
         .map(|_| ())
-        .map_err(|e| format!("Failed to start VM: {}", e))
+        .map_err(|e| {
+            let err_str = e.to_string();
+            if err_str.contains("Permission denied") && err_str.contains("/home/") {
+                format!("Failed to start VM: {}\n\n提示：QEMU/libvirt 程序無權存取家目錄下的 ISO/鏡像檔案。請執行 `chmod o+x ~` 開放家目錄目錄讀取權限，或將 ISO/鏡像移至預設儲存池 `/var/lib/libvirt/images/`。", err_str)
+            } else {
+                format!("Failed to start VM: {}", err_str)
+            }
+        })
 }
 
 #[tauri::command(async)]
