@@ -4,6 +4,7 @@ import { TranslationKey } from "../translations";
 interface SidebarHeaderProps {
   t: (key: TranslationKey) => string;
   loading: boolean;
+  error?: string | null;
   runningCount: number;
   stoppedCount: number;
   totalCount: number;
@@ -21,6 +22,7 @@ interface SidebarHeaderProps {
 export const SidebarHeader = ({
   t,
   loading,
+  error,
   runningCount,
   stoppedCount,
   totalCount,
@@ -62,9 +64,9 @@ export const SidebarHeader = ({
             </button>
           </div>
         </div>
-        <div className="status-badge">
+        <div className={`status-badge ${error ? "error" : ""}`}>
           <span className="status-dot"></span>
-          <span>{t("conn_connected")}</span>
+          <span>{error ? t("conn_disconnected") : t("conn_connected")}</span>
         </div>
 
         {/* Batch Actions Bar under connection status */}

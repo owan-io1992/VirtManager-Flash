@@ -308,3 +308,13 @@ pub fn resize_volume(pool_name: String, vol_name: String, new_size_gb: u64) -> R
         .map_err(|e| format!("Failed to resize volume: {}", e))
 }
 
+#[tauri::command(async)]
+pub fn set_storage_pool_autostart(name: String, autostart: bool) -> Result<(), String> {
+    let conn = crate::connect_libvirt()?;
+    let pool = StoragePool::lookup_by_name(&conn, &name)
+        .map_err(|e| format!("Storage pool not found: {}", e))?;
+    pool.set_autostart(autostart)
+        .map(|_| ())
+        .map_err(|e| format!("Failed to set storage pool autostart: {}", e))
+}
+

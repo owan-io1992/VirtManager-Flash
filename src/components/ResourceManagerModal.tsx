@@ -42,6 +42,7 @@ export const ResourceManagerModal = ({
   const [showCreateNet, setShowCreateNet] = useState(false);
   const [newNetName, setNewNetName] = useState("");
   const [newNetSubnet, setNewNetSubnet] = useState("192.168.100.0/24");
+  const [newNetDhcpEnabled, setNewNetDhcpEnabled] = useState(true);
   const [newNetDhcpStart, setNewNetDhcpStart] = useState("192.168.100.100");
   const [newNetDhcpEnd, setNewNetDhcpEnd] = useState("192.168.100.200");
   const [newNetForward, setNewNetForward] = useState("nat");
@@ -112,8 +113,8 @@ export const ResourceManagerModal = ({
       await invoke("create_network", {
         name: newNetName,
         subnet: newNetSubnet,
-        dhcpStart: newNetDhcpStart,
-        dhcpEnd: newNetDhcpEnd,
+        dhcpStart: newNetDhcpEnabled ? newNetDhcpStart : "",
+        dhcpEnd: newNetDhcpEnabled ? newNetDhcpEnd : "",
         forwardMode: newNetForward,
       });
       setShowCreateNet(false);
@@ -133,6 +134,16 @@ export const ResourceManagerModal = ({
       onRefresh();
     } catch (err: any) {
       setActionError(err?.toString() || "Failed to delete network");
+    }
+  };
+
+  const handleSetNetworkAutostart = async (name: string, autostart: boolean) => {
+    setActionError(null);
+    try {
+      await invoke("set_network_autostart", { name, autostart });
+      onRefresh();
+    } catch (err: any) {
+      setActionError(err?.toString() || "Failed to set network autostart");
     }
   };
 
@@ -167,6 +178,16 @@ export const ResourceManagerModal = ({
       onRefresh();
     } catch (err: any) {
       setActionError(err?.toString() || "Failed to delete storage pool");
+    }
+  };
+
+  const handleSetStoragePoolAutostart = async (name: string, autostart: boolean) => {
+    setActionError(null);
+    try {
+      await invoke("set_storage_pool_autostart", { name, autostart });
+      onRefresh();
+    } catch (err: any) {
+      setActionError(err?.toString() || "Failed to set storage pool autostart");
     }
   };
 
@@ -376,16 +397,48 @@ export const ResourceManagerModal = ({
                       </div>
                       <div className="form-row">
                         <span className="form-label">{t("net_subnet")}</span>
-                        <input type="text" className="form-input" value={newNetSubnet} onChange={(e) => setNewNetSubnet(e.target.value)} />
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={newNetSubnet}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewNetSubnet(val);
+                            const match = val.trim().match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}(\/\d+)?$/);
+                            if (match) {
+                              const prefix = match[1];
+                              setNewNetDhcpStart(`${prefix}.100`);
+                              setNewNetDhcpEnd(`${prefix}.200`);
+                            }
+                          }}
+                        />
                       </div>
-                      <div className="form-row">
-                        <span className="form-label">{t("net_dhcp")} (Start)</span>
-                        <input type="text" className="form-input" value={newNetDhcpStart} onChange={(e) => setNewNetDhcpStart(e.target.value)} />
+                      <div className="form-row" style={{ alignItems: "center" }}>
+                        <span className="form-label">{t("net_enable_dhcp")}</span>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            className="form-checkbox"
+                            checked={newNetDhcpEnabled}
+                            onChange={(e) => setNewNetDhcpEnabled(e.target.checked)}
+                          />
+                          <span style={{ fontSize: "0.85rem", color: newNetDhcpEnabled ? "#10B981" : "#64748B", fontWeight: 500 }}>
+                            {newNetDhcpEnabled ? t("res_enabled") : t("res_disabled")}
+                          </span>
+                        </label>
                       </div>
-                      <div className="form-row">
-                        <span className="form-label">{t("net_dhcp")} (End)</span>
-                        <input type="text" className="form-input" value={newNetDhcpEnd} onChange={(e) => setNewNetDhcpEnd(e.target.value)} />
-                      </div>
+                      {newNetDhcpEnabled && (
+                        <>
+                          <div className="form-row">
+                            <span className="form-label">{t("net_dhcp")} (Start)</span>
+                            <input type="text" className="form-input" value={newNetDhcpStart} onChange={(e) => setNewNetDhcpStart(e.target.value)} />
+                          </div>
+                          <div className="form-row">
+                            <span className="form-label">{t("net_dhcp")} (End)</span>
+                            <input type="text" className="form-input" value={newNetDhcpEnd} onChange={(e) => setNewNetDhcpEnd(e.target.value)} />
+                          </div>
+                        </>
+                      )}
                       <div className="form-row">
                         <span className="form-label">{t("net_forward_mode")}</span>
                         <select className="form-select" value={newNetForward} onChange={(e) => setNewNetForward(e.target.value)}>
@@ -422,11 +475,19 @@ export const ResourceManagerModal = ({
                             ● {activeNetwork.state === "active" ? t("net_active") : t("net_inactive")}
                           </span>
                         </div>
-                        <div className="spec-item">
+                        <div className="spec-item" style={{ alignItems: "center" }}>
                           <span className="spec-label">{t("net_autostart")}</span>
-                          <span className="spec-value" style={{ color: activeNetwork.autostart ? "#10B981" : "#64748B" }}>
-                            {activeNetwork.autostart ? t("res_enabled") : t("res_disabled")}
-                          </span>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              className="form-checkbox"
+                              checked={activeNetwork.autostart}
+                              onChange={(e) => handleSetNetworkAutostart(activeNetwork.name, e.target.checked)}
+                            />
+                            <span className="spec-value" style={{ color: activeNetwork.autostart ? "#10B981" : "#64748B", fontWeight: 500 }}>
+                              {activeNetwork.autostart ? t("res_enabled") : t("res_disabled")}
+                            </span>
+                          </label>
                         </div>
                         <div className="spec-item">
                           <span className="spec-label">{t("net_subnet")}</span>
@@ -492,7 +553,32 @@ export const ResourceManagerModal = ({
                       </div>
                       <div className="form-row">
                         <span className="form-label">{t("store_pool_path")}</span>
-                        <input type="text" className="form-input" value={newPoolPath} onChange={(e) => setNewPoolPath(e.target.value)} />
+                        <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={newPoolPath}
+                            onChange={(e) => setNewPoolPath(e.target.value)}
+                            style={{ flexGrow: 1 }}
+                          />
+                          <button
+                            type="button"
+                            className="btn-reset-settings"
+                            style={{ padding: "0 0.75rem", display: "flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" }}
+                            onClick={async () => {
+                              try {
+                                const selected = await invoke<string | null>("select_directory");
+                                if (selected) {
+                                  setNewPoolPath(selected);
+                                }
+                              } catch (err: any) {
+                                console.error("Failed to select directory:", err);
+                              }
+                            }}
+                          >
+                            📁 {t("vm_btn_browse")}
+                          </button>
+                        </div>
                       </div>
                       <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
                         <button className="btn-save-settings" style={{ margin: 0 }} onClick={handleCreatePool} disabled={!newPoolName.trim()}>
@@ -522,11 +608,19 @@ export const ResourceManagerModal = ({
                               {activeStorage.used_gb} GB {t("res_in_use")} / {activeStorage.size_gb - activeStorage.used_gb} GB {t("res_free")}
                             </span>
                           </div>
-                          <div className="spec-item">
+                          <div className="spec-item" style={{ alignItems: "center" }}>
                             <span className="spec-label">{t("store_pool_autostart")}</span>
-                            <span className="spec-value" style={{ color: activeStorage.autostart ? "#10B981" : "#64748B" }}>
-                              {activeStorage.autostart ? t("res_enabled") : t("res_disabled")}
-                            </span>
+                            <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                              <input
+                                type="checkbox"
+                                className="form-checkbox"
+                                checked={activeStorage.autostart}
+                                onChange={(e) => handleSetStoragePoolAutostart(activeStorage.name, e.target.checked)}
+                              />
+                              <span className="spec-value" style={{ color: activeStorage.autostart ? "#10B981" : "#64748B", fontWeight: 500 }}>
+                                {activeStorage.autostart ? t("res_enabled") : t("res_disabled")}
+                              </span>
+                            </label>
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>

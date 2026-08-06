@@ -159,10 +159,17 @@ pub fn create_network(name: String, subnet: String, dhcp_start: String, dhcp_end
     let escaped_dhcp_start = xml_escape(&dhcp_start);
     let escaped_dhcp_end = xml_escape(&dhcp_end);
 
-    let forward_xml = if forward_mode.is_empty() || forward_mode.to_lowercase() == "isolated" {
+    let forward_mode_clean = forward_mode.to_lowercase();
+    let forward_xml = if forward_mode.is_empty() || forward_mode_clean == "isolated" {
         String::new()
     } else {
         format!("  <forward mode='{}'/>\n", escaped_forward_mode)
+    };
+
+    let bridge_xml = if forward_mode_clean == "bridge" {
+        format!("  <bridge name='virbr-{}'/>\n", escaped_name)
+    } else {
+        format!("  <bridge name='virbr-{}' stp='on' delay='0'/>\n", escaped_name)
     };
 
     let dhcp_xml = if dhcp_start.is_empty() || dhcp_end.is_empty() {
@@ -171,12 +178,15 @@ pub fn create_network(name: String, subnet: String, dhcp_start: String, dhcp_end
         format!("    <dhcp>\n      <range start='{}' end='{}'/>\n    </dhcp>\n", escaped_dhcp_start, escaped_dhcp_end)
     };
 
+    let ip_xml = if subnet.is_empty() {
+        String::new()
+    } else {
+        format!("  <ip address='{}' prefix='{}'>\n{}  </ip>\n", escaped_gateway, escaped_prefix, dhcp_xml)
+    };
+
     let xml = format!(
-        "<network>\n  <name>{}</name>\n{}\
-         <bridge name='virbr-{}' stp='on' delay='0'/>\n  \
-         <ip address='{}' prefix='{}'>\n{}\
-         </ip>\n</network>",
-        escaped_name, forward_xml, escaped_name, escaped_gateway, escaped_prefix, dhcp_xml
+        "<network>\n  <name>{}</name>\n{}{}{}</network>",
+        escaped_name, forward_xml, bridge_xml, ip_xml
     );
 
     let net = Network::define_xml(&conn, &xml)
@@ -185,4 +195,14 @@ pub fn create_network(name: String, subnet: String, dhcp_start: String, dhcp_end
     net.create()
         .map(|_| ())
         .map_err(|e| format!("Network defined but failed to start: {}", e))
+}
+
+#[tauri::command(async)]
+pub fn set_network_autostart(name: String, autostart: bool) -> Result<(), String> {
+    let conn = crate::connect_libvirt()?;
+    let net = Network::lookup_by_name(&conn, &name)
+        .map_err(|e| format!("Network not found: {}", e))?;
+    net.set_autostart(autostart)
+        .map(|_| ())
+        .map_err(|e| format!("Failed to set network autostart: {}", e))
 }

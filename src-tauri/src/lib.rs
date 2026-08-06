@@ -130,6 +130,7 @@ pub fn run() {
             networks::stop_network,
             networks::delete_network,
             networks::create_network,
+            networks::set_network_autostart,
             storage::list_storage_pools,
             storage::start_storage_pool,
             storage::stop_storage_pool,
@@ -138,6 +139,7 @@ pub fn run() {
             storage::create_volume,
             storage::delete_volume,
             storage::resize_volume,
+            storage::set_storage_pool_autostart,
             system::set_libvirt_uri,
             system::get_libvirt_uri,
             system::select_directory

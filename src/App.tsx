@@ -945,6 +945,7 @@ function App() {
         <SidebarHeader
           t={t}
           loading={loading}
+          error={error}
           runningCount={runningCount}
           stoppedCount={stoppedCount}
           totalCount={domains.length}

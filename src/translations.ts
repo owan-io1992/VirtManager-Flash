@@ -2,6 +2,7 @@ export const translations = {
   zh: {
     brand_subtitle: "KVM 虛擬機管理器",
     conn_connected: "虛擬化連線已啟動",
+    conn_disconnected: "虛擬化連線失敗",
     btn_start: "開機",
     btn_stop: "關機",
     btn_settings: "偏好設定",
@@ -207,6 +208,7 @@ export const translations = {
     net_ipv4: "IPv4 網路配置",
     net_subnet: "網段位址",
     net_dhcp: "DHCP 範圍",
+    net_enable_dhcp: "啟用 DHCP 服務",
     net_forwarding: "路由轉發 (Forwarding)",
     store_pool_name: "儲存池名稱",
     store_pool_size: "容量空間",
@@ -351,6 +353,7 @@ export const translations = {
   en: {
     brand_subtitle: "KVM Virtual Machine Manager",
     conn_connected: "Hypervisor Connected",
+    conn_disconnected: "Hypervisor Disconnected",
     btn_start: "Start",
     btn_stop: "Shutdown",
     btn_settings: "Preferences",
@@ -556,6 +559,7 @@ export const translations = {
     net_ipv4: "IPv4 Network configuration",
     net_subnet: "Subnet Range",
     net_dhcp: "DHCP IP Pool",
+    net_enable_dhcp: "Enable DHCP Service",
     net_forwarding: "Forwarding Mode",
     store_pool_name: "Pool Name",
     store_pool_size: "Capacity Size",
