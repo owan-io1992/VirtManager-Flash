@@ -284,6 +284,7 @@ function App() {
     }
     try {
       const list = await invoke<DomainItem[]>("list_domains", { includeStats: metricsEnabledRef.current });
+      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
       
       const selectedVmName = selectedVmNames[0];
       if (selectedVmName && activeTab === "status") {
@@ -568,10 +569,12 @@ function App() {
         }
       });
 
-      domains.forEach((vm) => {
-        if (!nextOrder.includes(vm.name) && !vmsInFolders.has(vm.name)) {
-          nextOrder.push(vm.name);
-        }
+      const newVms = domains
+        .filter((vm) => !nextOrder.includes(vm.name) && !vmsInFolders.has(vm.name))
+        .map((vm) => vm.name);
+      newVms.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+      newVms.forEach((vmName) => {
+        nextOrder.push(vmName);
       });
 
       if (
