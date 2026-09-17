@@ -331,6 +331,12 @@ h1 {
   flex-grow: 1;
 }
 
+.vm-item-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .vm-item-name {
   font-size: 0.9rem;
   font-weight: 500;
@@ -338,6 +344,14 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.vm-item-lock {
+  font-size: 0.72rem;
+  opacity: 0.85;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
 }
 
 .vm-list-item.selected .vm-item-name {

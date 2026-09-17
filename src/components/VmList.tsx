@@ -36,6 +36,7 @@ interface VmListProps {
   handleDeleteFolder: (folderId: string, e: React.MouseEvent) => void;
   toggleFolderCollapse: (folderId: string) => void;
   handleContextMenu: (e: React.MouseEvent, name: string) => void;
+  lockedVmNames?: string[];
 }
 
 export const VmList = React.memo(({
@@ -59,6 +60,7 @@ export const VmList = React.memo(({
   handleDeleteFolder,
   toggleFolderCollapse,
   handleContextMenu,
+  lockedVmNames = [],
 }: VmListProps) => {
   const [filterText, setFilterText] = useState("");
 
@@ -391,7 +393,12 @@ export const VmList = React.memo(({
                 />
               </div>
               <div className="vm-item-details">
-                <span className="vm-item-name">{vm.name}</span>
+                <div className="vm-item-name-row">
+                  <span className="vm-item-name">{vm.name}</span>
+                  {lockedVmNames.includes(vm.name) && (
+                    <span className="vm-item-lock" title={t("vm_delete_locked")}>🔒</span>
+                  )}
+                </div>
                 <span className="vm-item-type">
                   {vm.os_type.toLowerCase().includes("hvm") ? t("vm_type_kvm") : t("vm_type_lxc")}
                 </span>
@@ -484,7 +491,12 @@ export const VmList = React.memo(({
                             />
                           </div>
                           <div className="vm-item-details">
-                            <span className="vm-item-name">{vm.name}</span>
+                            <div className="vm-item-name-row">
+                              <span className="vm-item-name">{vm.name}</span>
+                              {lockedVmNames.includes(vm.name) && (
+                                <span className="vm-item-lock" title={t("vm_delete_locked")}>🔒</span>
+                              )}
+                            </div>
                             <span className="vm-item-type">
                               {vm.os_type.toLowerCase().includes("hvm") ? t("vm_type_kvm") : t("vm_type_lxc")}
                             </span>
@@ -536,7 +548,12 @@ export const VmList = React.memo(({
                   />
                 </div>
                 <div className="vm-item-details">
-                  <span className="vm-item-name">{vm.name}</span>
+                  <div className="vm-item-name-row">
+                    <span className="vm-item-name">{vm.name}</span>
+                    {lockedVmNames.includes(vm.name) && (
+                      <span className="vm-item-lock" title={t("vm_delete_locked")}>🔒</span>
+                    )}
+                  </div>
                   <span className="vm-item-type">
                     {vm.os_type.toLowerCase().includes("hvm") ? t("vm_type_kvm") : t("vm_type_lxc")}
                   </span>

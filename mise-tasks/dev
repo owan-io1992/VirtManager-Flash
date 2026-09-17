@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#MISE description="Install dependencies and start the Tauri development server"
 set -euo pipefail
 
 echo "Installing dependencies..."

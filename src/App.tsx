@@ -80,6 +80,11 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [lockedVmNames, setLockedVmNames] = useState<string[]>(() => {
+    const saved = localStorage.getItem("virtmanager-flash-locked-vms");
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
 
@@ -121,6 +126,22 @@ function App() {
   useEffect(() => {
     localStorage.setItem("virtmanager-flash-folders", JSON.stringify(folders));
   }, [folders]);
+
+  useEffect(() => {
+    localStorage.setItem("virtmanager-flash-locked-vms", JSON.stringify(lockedVmNames));
+  }, [lockedVmNames]);
+
+  const toggleLockVms = useCallback((vmNames: string[]) => {
+    setLockedVmNames((prev) => {
+      const allLocked = vmNames.every((name) => prev.includes(name));
+      if (allLocked) {
+        return prev.filter((name) => !vmNames.includes(name));
+      } else {
+        const set = new Set([...prev, ...vmNames]);
+        return Array.from(set);
+      }
+    });
+  }, []);
 
   const metricsEnabledRef = useRef(metricsEnabled);
 
@@ -932,7 +953,10 @@ function App() {
   const canShutdown = selectedDoms.some((d) => d.state === 1); // some running
   const canForceStop = selectedDoms.some((d) => d.state === 1 || d.state === 3); // some running/paused
   const canReset = selectedDoms.some((d) => d.state === 1 || d.state === 3); // some running/paused
-  const canDelete = selectedDoms.length > 0 && selectedDoms.every((d) => d.state !== 1 && d.state !== 3);
+  const canDelete =
+    selectedDoms.length > 0 &&
+    selectedDoms.every((d) => d.state !== 1 && d.state !== 3) &&
+    !selectedDoms.some((d) => lockedVmNames.includes(d.name));
 
   return (
     <div className={`app-layout ${theme}-theme`}>
@@ -985,6 +1009,7 @@ function App() {
           handleDeleteFolder={handleDeleteFolder}
           toggleFolderCollapse={toggleFolderCollapse}
           handleContextMenu={handleContextMenu}
+          lockedVmNames={lockedVmNames}
         />
         <div 
           onClick={() => setShowAboutModal(true)}
@@ -1225,6 +1250,8 @@ function App() {
           canReset={canReset}
           canDelete={canDelete}
           selectedVmNames={selectedVmNames}
+          lockedVmNames={lockedVmNames}
+          onToggleLock={toggleLockVms}
           t={t}
           handleBatchAction={handleBatchAction}
           moveSelectedVmsToFolder={moveSelectedVmsToFolder}

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#MISE description="Build the Tauri application and package the AppImage"
 set -euo pipefail
 set -x 
 export PS4='+ $(date "+%s.%N") : '

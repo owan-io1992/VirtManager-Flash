@@ -16,6 +16,8 @@ interface VmContextMenuProps {
   canReset: boolean;
   canDelete: boolean;
   selectedVmNames: string[];
+  lockedVmNames?: string[];
+  onToggleLock?: (vmNames: string[]) => void;
   t: (key: TranslationKey, replaceMap?: Record<string, string | number>) => string;
   handleBatchAction: (action: string) => Promise<void>;
   moveSelectedVmsToFolder: (folderId: string | null) => void;
@@ -37,6 +39,8 @@ export const VmContextMenu = ({
   canReset,
   canDelete,
   selectedVmNames,
+  lockedVmNames = [],
+  onToggleLock,
   t,
   handleBatchAction,
   moveSelectedVmsToFolder,
@@ -56,6 +60,11 @@ export const VmContextMenu = ({
     const vmsToDelete = selectedVmNames.includes(contextMenu.vmName)
       ? selectedVmNames
       : [contextMenu.vmName];
+
+    if (vmsToDelete.some((name) => lockedVmNames.includes(name))) {
+      setDeleting(false);
+      return;
+    }
 
     try {
       const promises = vmsToDelete.map(async (name) => {
@@ -92,7 +101,7 @@ export const VmContextMenu = ({
       setDeleting(false);
       setDeleteConfirm(false);
     }
-  }, [contextMenu, deleteStorage, onDeleted, selectedVmNames, showGlobalToast, t]);
+  }, [contextMenu, deleteStorage, lockedVmNames, onDeleted, selectedVmNames, showGlobalToast, t]);
 
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return;
@@ -199,6 +208,28 @@ export const VmContextMenu = ({
       </button>
       
       <div className="context-menu-divider"></div>
+      {(() => {
+        const targets = selectedVmNames.includes(contextMenu.vmName)
+          ? selectedVmNames
+          : [contextMenu.vmName];
+        const allLocked = targets.every((name) => lockedVmNames.includes(name));
+        return (
+          <button
+            className="context-menu-item"
+            onClick={() => {
+              setContextMenu(null);
+              if (onToggleLock) {
+                onToggleLock(targets);
+              }
+            }}
+          >
+            <span className="menu-icon" style={{ color: allLocked ? "#10B981" : "#F59E0B" }}>
+              {allLocked ? "🔓" : "🔒"}
+            </span>
+            {allLocked ? t("ctx_unlock_delete") : t("ctx_lock_delete")}
+          </button>
+        );
+      })()}
       <button
         className="context-menu-item"
         style={canDelete ? { color: "#EF4444" } : undefined}

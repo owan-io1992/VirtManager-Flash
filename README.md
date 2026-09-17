@@ -168,6 +168,9 @@ mise install
 #### 安裝、執行與建置
 
 ```bash
+# 列出所有可用的 mise 任務
+mise tasks
+
 # 以開發模式執行 (會自動安裝依賴)
 mise run dev
 
