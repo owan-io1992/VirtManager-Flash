@@ -54,12 +54,15 @@ export const VmContextMenu = ({
   const [deleteStorage, setDeleteStorage] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const targets = contextMenu
+    ? (selectedVmNames.includes(contextMenu.vmName) ? selectedVmNames : [contextMenu.vmName])
+    : [];
+  const isMultiple = targets.length > 1;
+
   const handleDelete = useCallback(async () => {
     if (!contextMenu) return;
     setDeleting(true);
-    const vmsToDelete = selectedVmNames.includes(contextMenu.vmName)
-      ? selectedVmNames
-      : [contextMenu.vmName];
+    const vmsToDelete = targets;
 
     if (vmsToDelete.some((name) => lockedVmNames.includes(name))) {
       setDeleting(false);
@@ -101,7 +104,7 @@ export const VmContextMenu = ({
       setDeleting(false);
       setDeleteConfirm(false);
     }
-  }, [contextMenu, deleteStorage, lockedVmNames, onDeleted, selectedVmNames, showGlobalToast, t]);
+  }, [contextMenu, deleteStorage, lockedVmNames, onDeleted, showGlobalToast, t, targets]);
 
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return;
@@ -123,7 +126,9 @@ export const VmContextMenu = ({
       style={{ top: pos.y, left: pos.x }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="context-menu-title">{contextMenu.vmName}</div>
+      <div className="context-menu-title">
+        {isMultiple ? t("selected_envs", { count: targets.length }) : contextMenu.vmName}
+      </div>
       <button
         className="context-menu-item"
         onClick={async () => {
@@ -195,23 +200,22 @@ export const VmContextMenu = ({
         <span className="menu-icon" style={{ color: "#EF4444" }}>⚠</span> {t("ctx_reset")}
       </button>
       
-      <button
-        className="context-menu-item"
-        onClick={() => {
-          setContextMenu(null);
-          if (onClone) {
-            onClone({ vmName: contextMenu.vmName });
-          }
-        }}
-      >
-        <span className="menu-icon" style={{ color: "#3B82F6" }}>❐</span> {t("ctx_clone")}
-      </button>
+      {!isMultiple && (
+        <button
+          className="context-menu-item"
+          onClick={() => {
+            setContextMenu(null);
+            if (onClone) {
+              onClone({ vmName: contextMenu.vmName });
+            }
+          }}
+        >
+          <span className="menu-icon" style={{ color: "#3B82F6" }}>❐</span> {t("ctx_clone")}
+        </button>
+      )}
       
       <div className="context-menu-divider"></div>
       {(() => {
-        const targets = selectedVmNames.includes(contextMenu.vmName)
-          ? selectedVmNames
-          : [contextMenu.vmName];
         const allLocked = targets.every((name) => lockedVmNames.includes(name));
         return (
           <button
@@ -241,21 +245,21 @@ export const VmContextMenu = ({
 
       <div className="context-menu-divider"></div>
       {folders.map((f) => {
-        const hasVm = f.vmNames.includes(contextMenu.vmName);
+        const allInFolder = targets.every((name) => f.vmNames.includes(name));
         return (
           <button
             key={f.id}
             className="context-menu-item"
-            onClick={() => moveSelectedVmsToFolder(hasVm ? null : f.id)}
+            onClick={() => moveSelectedVmsToFolder(allInFolder ? null : f.id)}
           >
-            <span className="menu-icon">{hasVm ? "📤" : "📥"}</span>
-            {hasVm 
+            <span className="menu-icon">{allInFolder ? "📤" : "📥"}</span>
+            {allInFolder 
               ? t("ctx_move_out") 
               : t("ctx_move_to", { name: f.name })}
           </button>
         );
       })}
-      {selectedVmNames.some((name) => folders.some((f) => f.vmNames.includes(name))) && (
+      {targets.some((name) => folders.some((f) => f.vmNames.includes(name))) && (
         <button
           className="context-menu-item"
           onClick={() => moveSelectedVmsToFolder(null)}
@@ -273,8 +277,8 @@ export const VmContextMenu = ({
           </div>
           <div className="wizard-body">
             <p style={{ marginBottom: "1rem" }}>
-              {selectedVmNames.includes(contextMenu.vmName) && selectedVmNames.length > 1
-                ? t("ctx_delete_confirm_multiple", { count: selectedVmNames.length })
+              {isMultiple
+                ? t("ctx_delete_confirm_multiple", { count: targets.length })
                 : t("ctx_delete_confirm", { name: contextMenu.vmName })}
             </p>
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>

@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { MiniLineChart } from "./MiniLineChart";
 import { DomainItem } from "../types";
 import { TranslationKey } from "../translations";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
 interface VmStatusTabProps {
   selectedVm: DomainItem;
@@ -30,6 +31,7 @@ interface VmStatusTabProps {
   metricsEnabled: boolean;
   t: (key: TranslationKey) => string;
   ipAddresses?: string[];
+  showGlobalToast?: (message: string, type: "success" | "error") => void;
 }
 
 const getStateKey = (stateNum: number): TranslationKey => {
@@ -82,9 +84,36 @@ export const VmStatusTab = ({
   metricsEnabled,
   t,
   ipAddresses,
+  showGlobalToast,
 }: VmStatusTabProps) => {
   const history = metricsHistory[selectedVm.name] || EMPTY_HISTORY;
   const lastPoint = history[history.length - 1];
+
+  const [copiedKey, setCopiedKey] = useState<string | number | null>(null);
+
+  const handleCopyIp = useCallback(
+    async (text: string, key: string | number) => {
+      try {
+        try {
+          await writeText(text);
+        } catch {
+          if (navigator.clipboard) {
+            await navigator.clipboard.writeText(text);
+          }
+        }
+        setCopiedKey(key);
+        if (showGlobalToast) {
+          showGlobalToast(t("vm_ip_copied"), "success");
+        }
+        setTimeout(() => {
+          setCopiedKey((prev) => (prev === key ? null : prev));
+        }, 1500);
+      } catch (err) {
+        console.error("Failed to copy IP:", err);
+      }
+    },
+    [showGlobalToast, t]
+  );
 
   // Derived chart series, recomputed only when a new sample arrives —
   // not on unrelated re-renders (theme/selection/hover)
@@ -127,7 +156,9 @@ export const VmStatusTab = ({
       <div className="resources-grid">
         <div className="resource-card">
           <span className="resource-card-label">{t("vcpu_cores")}</span>
-          <span className="resource-card-val">{selectedVm.vcpu_count} {t("cores")}</span>
+          <span className="resource-card-val">
+            {selectedVm.vcpu_count} {selectedVm.vcpu_count === 1 ? "vCPU" : "vCPUs"}
+          </span>
         </div>
         <div className="resource-card">
           <span className="resource-card-label">{t("max_memory")}</span>
@@ -135,10 +166,63 @@ export const VmStatusTab = ({
         </div>
         {ipAddresses && ipAddresses.length > 0 && (
           <div className="resource-card">
-            <span className="resource-card-label">{t("ip_address")}</span>
-            <span className="resource-card-val" style={{ wordBreak: "break-all" }}>
-              {ipAddresses.join(", ")}
-            </span>
+            <div className="resource-card-header-row">
+              <span className="resource-card-label">{t("ip_address")}</span>
+              <button
+                type="button"
+                className="ip-copy-btn header-copy-btn"
+                onClick={() =>
+                  handleCopyIp(
+                    ipAddresses.length === 1 ? ipAddresses[0] : ipAddresses.join("\n"),
+                    "header"
+                  )
+                }
+                title={ipAddresses.length > 1 ? t("vm_copy_all_ips") : t("vm_copy_ip")}
+              >
+                {copiedKey === "header" ? (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: "12px", height: "12px" }}>
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span style={{ color: "#10B981" }}>{t("vm_ip_copied")}</span>
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: "12px", height: "12px" }}>
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    <span>{ipAddresses.length > 1 ? t("vm_copy_all_ips") : t("vm_copy_ip")}</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="resource-card-ip-list">
+              {ipAddresses.map((ip, idx) => (
+                <div key={idx} className="resource-card-ip-item">
+                  <span className="resource-card-ip-text" title={ip}>
+                    {ip}
+                  </span>
+                  <button
+                    type="button"
+                    className="ip-copy-btn line-copy-btn"
+                    onClick={() => handleCopyIp(ip, idx)}
+                    title={t("vm_copy_ip")}
+                  >
+                    {copiedKey === idx ? (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: "12px", height: "12px" }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: "12px", height: "12px" }}>
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

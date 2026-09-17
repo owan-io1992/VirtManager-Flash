@@ -172,7 +172,9 @@ export const VmBatchView = ({
       <div className="resources-grid">
         <div className="resource-card">
           <span className="resource-card-label">{t("total_vcpu")}</span>
-          <span className="resource-card-val">{totalCores} {t("cores")}</span>
+          <span className="resource-card-val">
+            {totalCores} {totalCores === 1 ? "vCPU" : "vCPUs"}
+          </span>
         </div>
         <div className="resource-card">
           <span className="resource-card-label">{t("total_mem")}</span>

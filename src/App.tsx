@@ -1179,6 +1179,7 @@ function App() {
                       metricsEnabled={metricsEnabled}
                       t={t}
                       ipAddresses={vmIps[selectedVm.name]}
+                      showGlobalToast={showGlobalToast}
                     />
                   ) : activeTab === "console" ? (
                     // Console Tab (Modular Component)
